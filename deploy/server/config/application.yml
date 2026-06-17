@@ -1,0 +1,24 @@
+# ============================================================
+# Monitor Server 生产配置（外挂）
+# 部署后修改，systemctl restart monitor-server 即生效
+# ============================================================
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: monitor-server
+
+monitor:
+  server:
+    push-interval: 3000
+    client-timeout: 30000
+
+logging:
+  level:
+    root: INFO
+    com.monitor: INFO
+  file:
+    path: ./logs
+    name: ./logs/monitor-server.log

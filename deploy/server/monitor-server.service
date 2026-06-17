@@ -1,0 +1,60 @@
+# ============================================================
+# Monitor Server systemd 服务
+# 用于在宿主机上管理服务端进程，支持开机自启
+# ============================================================
+#
+# 安装步骤:
+#   1. 将本文件复制到 /etc/systemd/system/monitor-server.service
+#   2. systemctl daemon-reload
+#   3. systemctl enable monitor-server
+#   4. systemctl start monitor-server
+#
+# 常用命令:
+#   查看状态:   systemctl status monitor-server
+#   查看日志:   journalctl -u monitor-server -f
+#   重启:       systemctl restart monitor-server
+# ============================================================
+
+[Unit]
+Description=Monitor Server - 监控汇总服务端
+Documentation=https://github.com/your-org/monitor-platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+# 工作目录
+WorkingDirectory=/usr/local/monitor-platform/monitor-server
+
+# 启动命令（配置文件外挂到 ./config/）
+ExecStart=/usr/bin/java \
+    -Djava.security.egd=file:/dev/./urandom \
+    -Duser.timezone=GMT+08 \
+    -Dfile.encoding=UTF-8 \
+    -XX:+UseG1GC \
+    -XX:MaxRAMPercentage=75.0 \
+    -jar /usr/local/monitor-platform/monitor-server/monitor-server-1.0.0-SNAPSHOT.jar \
+    --spring.config.location=./config/
+
+# 优雅停止
+KillMode=mixed
+TimeoutStopSec=30
+
+# 异常退出后自动重启
+Restart=always
+RestartSec=10
+
+# 日志输出到 journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=monitor-server
+
+# 资源限制
+LimitNOFILE=65535
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

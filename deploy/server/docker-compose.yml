@@ -1,0 +1,29 @@
+version: '3.8'
+
+# ============================================================  
+# 使用方式:
+#   HTTP 模式:  docker-compose up -d
+#   HTTPS 模式: docker-compose -f docker-compose.yml -f docker-compose.ssl.yml up -d
+# ============================================================
+
+services:
+  monitor-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        JAR_FILE: monitor-server-1.0.0-SNAPSHOT.jar
+    image: monitor-server:1.0.0
+    container_name: monitor-server
+    restart: unless-stopped
+
+    # ---- 端口 ----
+    ports:
+      - "8080:8080"
+
+    # ---- 配置/日志/证书外挂 ----
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+      # 开启 SSL 后取消下面注释
+      # - ./certs:/app/certs

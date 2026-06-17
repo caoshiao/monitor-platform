@@ -1,0 +1,30 @@
+version: '3.8'
+
+# ============================================================
+# SSL 覆写 —— 在基础 docker-compose.yml 之上叠加 HTTPS 配置
+# ============================================================
+# 用法:
+#   docker-compose -f docker-compose.yml -f docker-compose.ssl.yml up -d
+#
+# 前置条件:
+#   1. 将证书放入 ./certs/monitor-server.p12
+#   2. 或执行 bash ./generate-cert.sh 生成自签名证书
+# ============================================================
+
+services:
+  monitor-server:
+    ports:
+      - "8443:8443"
+      - "8080:8080"
+    volumes:
+      - ./certs:/app/certs
+    environment:
+      - SERVER_PORT=8443
+    command:
+      - "java"
+      - "-Djava.security.egd=file:/dev/./urandom"
+      - "-Duser.timezone=GMT+08"
+      - "-jar"
+      - "/app.jar"
+      - "--spring.config.location=./config/"
+      - "--spring.profiles.active=ssl"

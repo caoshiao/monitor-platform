@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>监控平台 - 服务器 & Docker & 微服务</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: #0a0e17;
+            color: #e0e6ed;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1f2e, #141824);
+            padding: 16px 24px;
+            border-bottom: 1px solid #2a3040;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .header h1 { font-size: 22px; color: #64b5f6; letter-spacing: 1px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+        .status-dot.connected { background: #4caf50; box-shadow: 0 0 8px #4caf50; }
+        .status-dot.disconnected { background: #f44336; box-shadow: 0 0 8px #f44336; }
+        .connection-info { font-size: 13px; color: #8899aa; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .client-section {
+            background: #141824;
+            border: 1px solid #2a3040;
+            border-radius: 10px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        .client-header {
+            background: #1a1f2e;
+            padding: 14px 20px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid #2a3040;
+        }
+        .client-header h2 { font-size: 16px; color: #64b5f6; }
+        .client-tabs { display: flex; gap: 4px; }
+        .client-tabs button {
+            background: #1e2434; border: 1px solid #2a3040; color: #8899aa;
+            padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+        }
+        .client-tabs button.active { background: #64b5f6; color: #0a0e17; border-color: #64b5f6; }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            padding: 20px;
+        }
+        .metric-card {
+            background: #1a1f2e;
+            border: 1px solid #2a3040;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .metric-label { font-size: 12px; color: #8899aa; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+        .metric-value { font-size: 28px; font-weight: 700; }
+        .metric-value.green { color: #4caf50; }
+        .metric-value.yellow { color: #ff9800; }
+        .metric-value.red { color: #f44336; }
+        .metric-value.blue { color: #64b5f6; }
+        .metric-unit { font-size: 14px; color: #8899aa; margin-left: 2px; }
+        .progress-bar {
+            height: 6px; background: #2a3040; border-radius: 3px;
+            margin-top: 8px; overflow: hidden;
+        }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width 0.8s; }
+        .progress-fill.green { background: #4caf50; }
+        .progress-fill.yellow { background: #ff9800; }
+        .progress-fill.red { background: #f44336; }
+        .table-wrap { padding: 0 20px 20px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 10px 12px; background: #1a1f2e; color: #8899aa; font-weight: 500; border-bottom: 1px solid #2a3040; position: sticky; top: 0; }
+        td { padding: 10px 12px; border-bottom: 1px solid #1e2434; }
+        tr:hover td { background: rgba(100, 181, 246, 0.05); }
+        .badge {
+            display: inline-block; padding: 3px 10px; border-radius: 12px;
+            font-size: 11px; font-weight: 600;
+        }
+        .badge-up { background: rgba(76, 175, 80, 0.2); color: #4caf50; }
+        .badge-down { background: rgba(244, 67, 54, 0.2); color: #f44336; }
+        .badge-running { background: rgba(76, 175, 80, 0.2); color: #4caf50; }
+        .badge-stopped { background: rgba(158, 158, 158, 0.2); color: #9e9e9e; }
+        .badge-unhealthy { background: rgba(244, 67, 54, 0.2); color: #f44336; }
+        .no-data { padding: 40px; text-align: center; color: #556677; }
+        .section-title { padding: 20px 20px 0; font-size: 14px; color: #8899aa; letter-spacing: 1px; text-transform: uppercase; }
+        @media (max-width: 768px) {
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div>
+        <h1>📊 监控平台 Monitor Platform</h1>
+    </div>
+    <div class="connection-info">
+        <span id="connDot" class="status-dot disconnected"></span>
+        <span id="connText">未连接</span>
+        &nbsp;|&nbsp;
+        在线节点: <strong id="onlineCount">0</strong>
+    </div>
+</div>
+
+<div class="container" id="dashboard">
+    <div class="no-data">正在连接服务端...</div>
+</div>
+
+<script>
+    // ==================== WebSocket 连接 ====================
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = protocol + '//' + location.host + '/ws/frontend';
+    let ws;
+
+    function connect() {
+        ws = new WebSocket(wsUrl);
+        ws.onopen = function() {
+            document.getElementById('connDot').className = 'status-dot connected';
+            document.getElementById('connText').textContent = '已连接';
+        };
+        ws.onclose = function() {
+            document.getElementById('connDot').className = 'status-dot disconnected';
+            document.getElementById('connText').textContent = '已断开';
+            setTimeout(connect, 3000);
+        };
+        ws.onerror = function() { ws.close(); };
+        ws.onmessage = function(event) {
+            try {
+                var data = JSON.parse(event.data);
+                renderDashboard(data);
+            } catch(e) { console.error('数据解析失败:', e); }
+        };
+    }
+    connect();
+
+    // ==================== Tab 状态记忆 ====================
+    // 记录每个 clientId 当前激活的 tab，防止数据刷新时跳回"系统"
+    var activeTabs = {};
+
+    // ==================== 渲染仪表盘 ====================
+    function renderDashboard(data) {
+        var snapshots = data.clientSnapshots || [];
+        document.getElementById('onlineCount').textContent = snapshots.length;
+
+        if (snapshots.length === 0) {
+            document.getElementById('dashboard').innerHTML = '<div class="no-data">暂无在线节点</div>';
+            return;
+        }
+
+        var html = '';
+        snapshots.forEach(function(s, idx) {
+            html += buildClientSection(s, idx);
+        });
+        document.getElementById('dashboard').innerHTML = html;
+
+        // 绑定 Tab 切换事件
+        document.querySelectorAll('.client-tabs button').forEach(function(btn) {
+            btn.onclick = function() {
+                var clientId = this.getAttribute('data-client');
+                var tab = this.getAttribute('data-tab');
+                switchTab(clientId, tab);
+            };
+        });
+
+        // 恢复之前选中的 Tab（解决数据刷新后跳回"系统"的问题）
+        snapshots.forEach(function(s) {
+            var clientId = s.clientId || 'unknown';
+            if (activeTabs[clientId]) {
+                switchTab(clientId, activeTabs[clientId]);
+            }
+        });
+    }
+
+    /** 切换到指定 tab 并记忆 */
+    function switchTab(clientId, tab) {
+        activeTabs[clientId] = tab;
+        // 按钮激活样式
+        document.querySelectorAll('.client-tabs button[data-client="' + clientId + '"]').forEach(function(b) {
+            b.className = '';
+        });
+        var activeBtn = document.querySelector('.client-tabs button[data-client="' + clientId + '"][data-tab="' + tab + '"]');
+        if (activeBtn) activeBtn.className = 'active';
+        // Tab 内容切换
+        var section = document.getElementById('section-' + clientId);
+        if (!section) return;
+        section.querySelectorAll('.tab-content').forEach(function(tc) { tc.style.display = 'none'; });
+        var target = section.querySelector('.tab-' + tab);
+        if (target) target.style.display = 'block';
+    }
+
+    function buildClientSection(snapshot, idx) {
+        var clientId = snapshot.clientId || 'unknown';
+        var hostname = snapshot.hostname || 'unknown';
+        var sys = snapshot.systemMetrics || {};
+        var docker = snapshot.dockerMetrics || {};
+        var ms = snapshot.microserviceMetrics || {};
+
+        var html = '<div class="client-section" id="section-' + clientId + '">';
+        html += '<div class="client-header">';
+        html += '<h2>🖥 ' + hostname + ' <span style="font-size:12px;color:#8899aa;">(' + clientId + ')</span></h2>';
+        html += '<div class="client-tabs">';
+        html += '<button data-client="' + clientId + '" data-tab="system">系统</button>';
+        html += '<button data-client="' + clientId + '" data-tab="docker">Docker</button>';
+        html += '<button data-client="' + clientId + '" data-tab="microservice">微服务</button>';
+        html += '</div></div>';
+
+        // 系统 tab（默认显示，后续由 switchTab 覆盖）
+        html += '<div class="tab-content tab-system">';
+        html += buildSystemMetrics(sys);
+        html += '</div>';
+
+        html += '<div class="tab-content tab-docker" style="display:none;">';
+        html += buildDockerMetrics(docker);
+        html += '</div>';
+
+        html += '<div class="tab-content tab-microservice" style="display:none;">';
+        html += buildMicroserviceMetrics(ms);
+        html += '</div>';
+
+        html += '</div>';
+        return html;
+    }
+
+    function buildSystemMetrics(sys) {
+        if (!sys || Object.keys(sys).length === 0) return '<div class="no-data">暂无系统指标数据</div>';
+        return '' +
+        '<div class="metrics-grid">' +
+            metricCard('CPU 使用率', (sys.cpuUsage||0).toFixed(1), '%', sys.cpuUsage, 'CPU') +
+            metricCard('内存使用率', (sys.memoryUsage||0).toFixed(1), '%', sys.memoryUsage, 'MEM') +
+            metricCard('磁盘使用率', (sys.diskUsage||0).toFixed(1), '%', sys.diskUsage, 'DISK') +
+            metricCard('JVM 堆使用', (sys.jvmHeapUsage||0).toFixed(1), '%', sys.jvmHeapUsage, 'JVM') +
+            metricCard('已用内存', (sys.usedMemoryGB||0).toFixed(1), ' / ' + (sys.totalMemoryGB||0).toFixed(1) + ' GB', (sys.memoryUsage||0), 'MEM') +
+            metricCard('已用磁盘', (sys.usedDiskGB||0).toFixed(1), ' / ' + (sys.totalDiskGB||0).toFixed(1) + ' GB', (sys.diskUsage||0), 'DISK') +
+            metricCard('网络接收', (sys.networkRxKBs||0).toFixed(1), 'KB/s', 0, '') +
+            metricCard('网络发送', (sys.networkTxKBs||0).toFixed(1), 'KB/s', 0, '') +
+            metricCard('CPU 核心数', sys.cpuCores || 0, '核', 0, '') +
+            metricCard('运行时间', (sys.uptimeMinutes||0), '分钟', 0, '') +
+            metricCard('负载(1m)', (sys.loadAverage||0).toFixed(2), '', 0, '') +
+            metricCard('主机名', sys.hostname||'unknown', '', 0, '') +
+        '</div>';
+    }
+
+    function buildDockerMetrics(docker) {
+        if (!docker || docker.totalContainers == null || docker.totalContainers < 0)
+            return '<div class="no-data">Docker 未启用或采集失败</div>';
+        var html = '';
+        html += '<div class="metrics-grid">' +
+            metricCard('容器总数', docker.totalContainers||0, '个', 0, '') +
+            metricCard('运行中', docker.runningContainers||0, '个', 0, '') +
+            metricCard('已停止', docker.stoppedContainers||0, '个', 0, '') +
+            metricCard('异常', docker.unhealthyContainers||0, '个', 0, '') +
+            metricCard('镜像总数', docker.totalImages||0, '个', 0, '') +
+        '</div>';
+
+        var containers = docker.containers || [];
+        if (containers.length > 0) {
+            html += '<div class="section-title">容器详情</div><div class="table-wrap"><table>';
+            html += '<tr><th>容器名称</th><th>镜像</th><th>状态</th><th>运行时长</th><th>CPU</th><th>内存(MB)</th><th>端口</th></tr>';
+            containers.forEach(function(c) {
+                var badgeClass = c.status === 'running' ? 'badge-running' : c.status === 'exited' ? 'badge-stopped' : 'badge-unhealthy';
+                html += '<tr>' +
+                    '<td>' + (c.name||'') + '</td>' +
+                    '<td>' + (c.image||'') + '</td>' +
+                    '<td><span class="badge ' + badgeClass + '">' + (c.status||'') + '</span></td>' +
+                    '<td>' + (c.uptime||'') + '</td>' +
+                    '<td>' + (c.cpuUsage ? c.cpuUsage.toFixed(1) + '%' : '-') + '</td>' +
+                    '<td>' + (c.memoryUsageMB ? c.memoryUsageMB.toFixed(1) : '-') + '</td>' +
+                    '<td>' + (c.ports||'-') + '</td>' +
+                '</tr>';
+            });
+            html += '</table></div>';
+        }
+        return html;
+    }
+
+    function buildMicroserviceMetrics(ms) {
+        if (!ms || ms.totalServices == null || ms.totalServices < 0)
+            return '<div class="no-data">微服务监控未启用或采集失败</div>';
+        var html = '';
+        html += '<div class="metrics-grid">' +
+            metricCard('服务总数', ms.totalServices||0, '个', 0, '') +
+            metricCard('健康', ms.healthyServices||0, '个', 0, '') +
+            metricCard('异常', ms.unhealthyServices||0, '个', 0, '') +
+        '</div>';
+
+        var services = ms.services || [];
+        if (services.length > 0) {
+            html += '<div class="section-title">服务详情</div><div class="table-wrap"><table>';
+            html += '<tr><th>服务名称</th><th>地址</th><th>端口</th><th>状态</th><th>响应时间(ms)</th><th>错误信息</th></tr>';
+            services.forEach(function(svc) {
+                var badgeClass = svc.healthStatus === 'UP' ? 'badge-up' : 'badge-down';
+                html += '<tr>' +
+                    '<td>' + (svc.serviceName||'') + '</td>' +
+                    '<td>' + (svc.serviceUrl||'') + '</td>' +
+                    '<td>' + (svc.port||'-') + '</td>' +
+                    '<td><span class="badge ' + badgeClass + '">' + (svc.healthStatus||'UNKNOWN') + '</span></td>' +
+                    '<td>' + (svc.responseTimeMs >= 0 ? svc.responseTimeMs : '-') + '</td>' +
+                    '<td style="color:#f44336;">' + (svc.errorMessage||'') + '</td>' +
+                '</tr>';
+            });
+            html += '</table></div>';
+        }
+        return html;
+    }
+
+    function metricCard(label, value, unit, usage, type) {
+        var colorClass = '';
+        if (type === 'CPU' || type === 'MEM' || type === 'DISK' || type === 'JVM') {
+            if (usage > 90) colorClass = 'red';
+            else if (usage > 70) colorClass = 'yellow';
+            else if (usage > 0) colorClass = 'green';
+            else colorClass = 'blue';
+        } else { colorClass = 'blue'; }
+
+        var progressHtml = '';
+        if ((type === 'CPU' || type === 'MEM' || type === 'DISK' || type === 'JVM') && usage > 0) {
+            var pColor = usage > 90 ? 'red' : usage > 70 ? 'yellow' : 'green';
+            progressHtml = '<div class="progress-bar"><div class="progress-fill ' + pColor + '" style="width:' + Math.min(usage,100) + '%"></div></div>';
+        }
+
+        return '<div class="metric-card">' +
+            '<div class="metric-label">' + label + '</div>' +
+            '<div class="metric-value ' + colorClass + '">' + value + '<span class="metric-unit">' + unit + '</span></div>' +
+            progressHtml +
+        '</div>';
+    }
+</script>
+</body>
+</html>

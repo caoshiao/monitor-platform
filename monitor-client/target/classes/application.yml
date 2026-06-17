@@ -1,0 +1,34 @@
+# 监控客户端配置
+monitor:
+  client:
+    # 客户端唯一标识（留空则自动使用主机名）
+    # client-id: server-node-01
+    # 服务端 WebSocket 地址
+    server-url: ws://localhost:8080/ws/client
+    # 启用系统监控（CPU/内存/磁盘/网络）
+    system-enabled: true
+    # 启用 Docker 监控
+    docker-enabled: false
+    # Docker 守护进程地址（Linux 默认 unix socket，Windows 使用 tcp）
+    # docker-host: unix:///var/run/docker.sock
+    # docker-host: tcp://localhost:2375
+    # 启用微服务健康监控
+    microservice-enabled: false
+    # 需要监控的微服务健康检查地址
+    microservices:
+      # - name: user-service
+      #   health-url: http://localhost:8081/actuator/health
+      #   port: 8081
+      # - name: order-service
+      #   health-url: http://localhost:8082/actuator/health
+      #   port: 8082
+
+spring:
+  application:
+    name: monitor-client
+
+logging:
+  level:
+    com.monitor: DEBUG
+server:
+  port: 8081

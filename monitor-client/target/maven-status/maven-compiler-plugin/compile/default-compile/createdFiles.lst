@@ -1,0 +1,10 @@
+com\monitor\client\collector\MicroserviceCollector$1.class
+com\monitor\client\collector\SystemCollector.class
+com\monitor\client\websocket\ClientWebSocketHandler.class
+com\monitor\client\MonitorClientApplication.class
+com\monitor\client\config\ClientConfig.class
+com\monitor\client\collector\DockerCollector.class
+com\monitor\client\scheduler\CollectScheduler.class
+com\monitor\client\collector\MicroserviceCollector$HealthCheckResult.class
+com\monitor\client\config\ClientConfig$ServiceEndpoint.class
+com\monitor\client\collector\MicroserviceCollector.class

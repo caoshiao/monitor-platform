@@ -1,0 +1,62 @@
+# ============================================================
+# Monitor Client systemd 服务
+# 用于在宿主机上以 systemd 管理客户端进程，支持开机自启
+# ============================================================
+#
+# 安装步骤:
+#   1. 将本文件复制到 /etc/systemd/system/monitor-client.service
+#   2. systemctl daemon-reload
+#   3. systemctl enable monitor-client
+#   4. systemctl start monitor-client
+#
+# 常用命令:
+#   查看状态:   systemctl status monitor-client
+#   查看日志:   journalctl -u monitor-client -f
+#   重启:       systemctl restart monitor-client
+#   停止:       systemctl stop monitor-client
+# ============================================================
+
+[Unit]
+Description=Monitor Client - 服务器监控采集客户端
+Documentation=https://github.com/your-org/monitor-platform
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+# ---- 基础配置 ----
+Type=simple
+User=root
+Group=root
+
+# 工作目录
+WorkingDirectory=/opt/monitor-platform/monitor-client
+
+# 启动命令
+ExecStart=/usr/bin/java \
+    -Djava.security.egd=file:/dev/./urandom \
+    -Duser.timezone=GMT+08 \
+    -Dfile.encoding=UTF-8 \
+    -XX:+UseG1GC \
+    -XX:MaxRAMPercentage=50.0 \
+    -jar /opt/monitor-platform/monitor-client/monitor-client-1.0.0-SNAPSHOT.jar \
+    --spring.config.location=/opt/monitor-platform/monitor-client/config/
+
+# 优雅停止（先 SIGTERM，90 秒后 SIGKILL）
+KillMode=mixed
+TimeoutStopSec=90
+
+# 异常退出后自动重启
+Restart=always
+RestartSec=15
+
+# 日志输出到 journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=monitor-client
+
+# 限制
+LimitNOFILE=65535
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

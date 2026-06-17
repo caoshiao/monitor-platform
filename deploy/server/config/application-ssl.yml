@@ -1,0 +1,14 @@
+# ============================================================
+# SSL Profile 配置
+# 执行 docker-compose -f docker-compose.yml -f docker-compose.ssl.yml up -d 时自动激活
+# 证书文件需放入 deploy/server/certs/monitor-server.p12
+# ============================================================
+
+server:
+  port: 8443
+  ssl:
+    enabled: true
+    key-store: file:/app/certs/monitor-server.p12
+    key-store-password: changeit
+    key-store-type: PKCS12
+    key-alias: monitor-server

@@ -1,0 +1,38 @@
+# ============================================================
+# Monitor Client 生产配置
+# 部署时复制到目标服务器，根据实际情况修改
+# ============================================================
+
+monitor:
+  client:
+    # 客户端唯一标识（留空则自动使用主机名）
+    client-id:
+    # 服务端 WebSocket 地址（指向 Docker 部署的 Server）
+    server-url: ws://192.168.1.100:8080/ws/client
+
+    # ---- 系统监控（默认开启） ----
+    system-enabled: true
+
+    # ---- Docker 监控（需要则开启） ----
+    docker-enabled: false
+    docker-host: unix:///var/run/docker.sock
+
+    # ---- 微服务健康监控（需要则开启） ----
+    microservice-enabled: false
+    # 是否校验 HTTPS 证书，默认 false（内网自签名证书场景跳过校验）
+    microservice-ssl-verify: false
+    microservices:
+      # - name: user-service
+      #   health-url: http://localhost:8081/actuator/health
+      #   port: 8081
+      # - name: order-service
+      #   health-url: http://localhost:8082/actuator/health
+      #   port: 8082
+
+logging:
+  level:
+    root: WARN
+    com.monitor: INFO
+  file:
+    path: /opt/monitor-platform/logs
+    name: /opt/monitor-platform/logs/monitor-client.log
