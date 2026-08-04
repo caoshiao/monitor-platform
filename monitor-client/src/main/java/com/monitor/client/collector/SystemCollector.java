@@ -99,12 +99,12 @@ public class SystemCollector {
         metrics.setClientId(clientId);
         metrics.setCollectTime(LocalDateTime.now());
 
-        // 主机名（失败降级为 "unknown"）
+        // IP 地址（失败降级为 "unknown"）
         try {
-            metrics.setHostname(InetAddress.getLocalHost().getHostName());
+            metrics.setHostname(InetAddress.getLocalHost().getHostAddress());
         } catch (UnknownHostException e) {
             metrics.setHostname("unknown");
-            log.debug("获取主机名失败", e);
+            log.debug("获取 IP 地址失败", e);
         }
 
         // === CPU ===
