@@ -13,9 +13,9 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  *   <li>通过 WebSocket（/ws/client）接收各采集客户端上报的指标数据</li>
  *   <li>汇总并缓存所有在线客户端的指标快照</li>
  *   <li>通过 WebSocket（/ws/frontend）定时推送给浏览器仪表盘</li>
- *   <li>提供静态资源服务（监控仪表盘 HTML 页面）</li>
+ *   <li>通过 REST 接口向独立前端提供快照和服务健康状态</li>
  * </ul>
- * 默认监听端口 8080，启动后浏览器访问 http://&lt;server-ip&gt;:8080 即可打开仪表盘。
+ * 默认监听端口 8080，前端项目 {@code monitor-web} 通过 REST/WebSocket 与本服务连接。
  * </p>
  *
  * @author csa

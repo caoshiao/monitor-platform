@@ -41,7 +41,7 @@ mvn clean package -DskipTests
 
 ## 三、服务端部署
 
-服务端负责接收各客户端上报的指标数据，并向浏览器前端页面实时推送。
+服务端负责接收各客户端上报的指标数据，并通过 REST/WebSocket 向独立前端提供数据。
 
 ### 3.1 启动服务端
 
@@ -64,13 +64,36 @@ java -jar target/monitor-server-1.0.0-SNAPSHOT.jar --spring.config.location=/pat
 
 ### 3.3 验证服务端
 
-启动后访问以下地址确认服务正常运行：
+启动后可通过以下地址确认服务正常运行：
 
-- **监控仪表盘**：`http://<server-ip>:8080`
+- **REST 快照**：`http://<server-ip>:8080/api/monitor/snapshot`
+- **REST 健康检查**：`http://<server-ip>:8080/api/monitor/health`
 - **WebSocket 客户端端点**：`ws://<server-ip>:8080/ws/client`
 - **WebSocket 前端端点**：`ws://<server-ip>:8080/ws/frontend`
 
-### 3.4 服务端配置参考
+服务端不再内置前端页面，前端请按下文“前端启动”单独运行。
+
+### 3.4 PostgreSQL 12 数据库
+
+节点配置和告警规则使用 MyBatis-Plus 持久化到 PostgreSQL 12。默认连接配置为：
+
+```yaml
+url: jdbc:postgresql://192.168.222.128:55432/monitor_platform
+username: szh
+password: Szh,111111
+```
+
+首次部署请在 PostgreSQL 上创建数据库（已有同名数据库可跳过）：
+
+```sql
+CREATE DATABASE monitor_platform OWNER szh;
+```
+
+也可以通过环境变量覆盖连接信息：`MONITOR_DB_URL`、`MONITOR_DB_NAME`、`MONITOR_DB_USERNAME`、`MONITOR_DB_PASSWORD`。服务启动时会自动执行 `monitor-server/src/main/resources/schema.sql`，创建 `monitor_node`、`monitor_alert_rule` 和 `monitor_alert_event` 表。
+
+告警事件会在首次超过预警阈值时创建，持续期间更新 `last_seen_at` 和 `duration_seconds`，指标恢复后写入 `resolved_at` 并将状态标记为 `RESOLVED`。即使没有浏览器打开，服务端也会每 5 秒后台评估一次。
+
+### 3.5 服务端配置参考
 
 ```yaml
 # application.yml
@@ -315,9 +338,35 @@ microservices:
 
 ---
 
-## 七、前端仪表盘使用
+## 七、独立前端启动与使用
 
-服务端启动后，浏览器访问 `http://<server-ip>:8080` 即可打开监控仪表盘。
+前端代码位于 `monitor-web`，技术栈为 Vue 2 + Element UI + Vite + Node.js。
+
+```bash
+cd monitor-web
+npm install
+npm run dev
+```
+
+开发模式默认访问 `http://localhost:3000`，Vite 会将 `/api`、`/ws` 代理到 `http://localhost:8080`。生产构建：
+
+```bash
+npm run build
+npm run preview
+```
+
+生产环境可使用 `VITE_API_BASE=https://monitor.example.com npm run build` 指定后端地址，再将 `monitor-web/dist` 部署到 Nginx、Node.js 静态服务器或 CDN。
+
+前端包含两个入口：
+
+| 页面 | 路由 | 内容 |
+|------|------|------|
+| 实时总览 | `/index.html` | 独立展示入口；节点在线状态、系统指标、Docker 容器、微服务健康检查，WebSocket 实时刷新 |
+| 后台管理 | `/admin.html` | 独立管理入口；节点展示名称/可见性、告警阈值、刷新间隔、服务端健康检查 |
+
+## 八、前端仪表盘功能
+
+服务端与前端均启动后，浏览器访问 `http://<frontend-host>:3000`（开发模式）或前端部署地址即可打开监控仪表盘。
 
 ### 仪表盘功能
 
@@ -337,16 +386,16 @@ microservices:
 
 ---
 
-## 八、防火墙与网络
+## 九、防火墙与网络
 
-### 8.1 端口清单
+### 9.1 端口清单
 
 | 端口 | 方向 | 用途 |
 |------|------|------|
 | 8080 | 入站 | 服务端 HTTP + WebSocket |
 | 2375 | 本机 | Docker API（仅 Windows 需开启） |
 
-### 8.2 Linux 防火墙放行
+### 9.2 Linux 防火墙放行
 
 ```bash
 # firewalld
@@ -359,7 +408,7 @@ iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
 
 ---
 
-## 九、数据采集频率说明
+## 十、数据采集频率说明
 
 | 指标类型 | 采集间隔 | 配置位置 |
 |----------|----------|----------|
@@ -372,44 +421,44 @@ iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
 
 ---
 
-## 十、故障排查
+## 十一、故障排查
 
-### 10.1 客户端无法连接服务端
+### 11.1 客户端无法连接服务端
 
 ```bash
 # 检查服务端是否启动
-curl http://<server-ip>:8080
+curl http://<server-ip>:8080/api/monitor/health
 
 # 检查 WebSocket 端点
 # 浏览器控制台执行：
 # new WebSocket('ws://<server-ip>:8080/ws/client')
 ```
 
-### 10.2 系统指标采集为空
+### 11.2 系统指标采集为空
 
 - 确认 `system-enabled: true`
 - 客户端日志查看是否有 OSHI 相关错误
 
-### 10.3 Docker 采集失败
+### 11.3 Docker 采集失败
 
 - Linux：确认用户有 Docker Socket 读取权限（`docker ps` 可正常执行）
 - Windows：确认已开启 TCP 端口（参考 5.2 节）
 - 查看服务端日志：采集失败时 `totalContainers` 返回 `-1`
 
-### 10.4 微服务健康检查失败
+### 11.4 微服务健康检查失败
 
 - 确认健康检查 URL 可从客户端服务器直接访问
 - 测试命令：`curl http://localhost:8081/actuator/health`
 - 检查超时设置（默认 5 秒连接超时 + 5 秒读取超时）
 
-### 10.5 前端页面显示「暂无在线节点」
+### 11.5 前端页面显示「暂无在线节点」
 
 1. 确认服务端已启动
 2. 确认至少有一个客户端已连接并上报数据
 3. 打开浏览器开发者工具控制台，查看 WebSocket 连接状态
 4. 检查是否有防火墙阻拦
 
-### 10.6 查看日志
+### 11.6 查看日志
 
 ```bash
 # 客户端/服务端启动时添加日志参数
@@ -422,12 +471,12 @@ journalctl -u monitor-server -f
 
 ---
 
-## 十一、典型部署拓扑
+## 十二、典型部署拓扑
 
 ```
                           ┌─────────────────┐
                           │   浏览器前端      │
-                          │  http://:8080    │
+                          │  http://:3000    │
                           └────────┬────────┘
                                    │ ws:///ws/frontend
                           ┌────────▼────────┐
@@ -450,7 +499,7 @@ journalctl -u monitor-server -f
 
 ---
 
-## 十二、快速启动脚本
+## 十三、快速启动脚本
 
 ### 服务端启动脚本 `start-server.sh`
 
