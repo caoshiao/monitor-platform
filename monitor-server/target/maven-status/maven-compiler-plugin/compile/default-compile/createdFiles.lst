@@ -1,6 +1,0 @@
-com\monitor\server\config\WebSocketConfig.class
-com\monitor\server\scheduler\PushScheduler.class
-com\monitor\server\websocket\FrontendWsHandler.class
-com\monitor\server\websocket\ClientWsHandler.class
-com\monitor\server\service\MetricsService.class
-com\monitor\server\MonitorServerApplication.class

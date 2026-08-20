@@ -1,8 +1,0 @@
-com\monitor\common\model\MicroserviceMetrics$ServiceInfo.class
-com\monitor\common\model\SystemMetrics.class
-com\monitor\common\model\DockerMetrics$ContainerInfo.class
-com\monitor\common\model\ServerMessage.class
-com\monitor\common\model\DockerMetrics.class
-com\monitor\common\model\ServerMessage$ClientSnapshot.class
-com\monitor\common\model\MicroserviceMetrics.class
-com\monitor\common\model\ClientMessage.class
