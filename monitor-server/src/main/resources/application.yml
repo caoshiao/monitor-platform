@@ -6,9 +6,9 @@ spring:
   application:
     name: monitor-server
   datasource:
-    url: ${MONITOR_DB_URL:jdbc:postgresql://localhost:5432/monitor_platform}
-    username: ${MONITOR_DB_USERNAME:}
-    password: ${MONITOR_DB_PASSWORD:}
+    url: ${MONITOR_DB_URL:jdbc:postgresql://192.168.222.128:55432/monitor_platform}
+    username: ${MONITOR_DB_USERNAME:szh}
+    password: ${MONITOR_DB_PASSWORD:Szh,111111}
     driver-class-name: org.postgresql.Driver
   sql:
     init:

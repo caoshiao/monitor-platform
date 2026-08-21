@@ -3,12 +3,14 @@ package com.monitor.client.scheduler;
 import com.monitor.client.collector.DockerCollector;
 import com.monitor.client.collector.MicroserviceCollector;
 import com.monitor.client.collector.SystemCollector;
+import com.monitor.client.collector.HighgoCollector;
 import com.monitor.client.config.ClientConfig;
 import com.monitor.client.websocket.ClientWebSocketHandler;
 import com.monitor.common.model.ClientMessage;
 import com.monitor.common.model.DockerMetrics;
 import com.monitor.common.model.MicroserviceMetrics;
 import com.monitor.common.model.SystemMetrics;
+import com.monitor.common.model.HighgoMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -57,6 +59,8 @@ public class CollectScheduler {
 
     /** 微服务健康检测采集器（HTTP GET） */
     private final MicroserviceCollector microserviceCollector;
+
+    private final HighgoCollector highgoCollector;
 
     /** WebSocket 客户端，用于向服务端发送消息 */
     private final ClientWebSocketHandler wsHandler;
@@ -142,6 +146,21 @@ public class CollectScheduler {
             wsHandler.sendMessage(msg);
         } catch (RuntimeException e) {
             log.error("采集微服务指标失败, clientId={}", clientId, e);
+        }
+    }
+
+    @Scheduled(fixedDelay = 15000)
+    public void collectHighgoMetrics() {
+        if (!config.isHighgoEnabled() || !wsHandler.isConnected()) return;
+        try {
+            HighgoMetrics metrics = highgoCollector.collect(clientId, config);
+            ClientMessage message = new ClientMessage();
+            message.setType("HIGHGO");
+            message.setClientId(clientId);
+            message.setHighgoMetrics(metrics);
+            wsHandler.sendMessage(message);
+        } catch (RuntimeException e) {
+            log.error("采集瀚高数据库指标失败, clientId={}", clientId, e);
         }
     }
 }

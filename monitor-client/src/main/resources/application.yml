@@ -2,7 +2,7 @@
 monitor:
   client:
     # 客户端唯一标识（留空则自动使用主机名）
-    # client-id: server-node-01
+    client-id: server-node-01
     # 服务端 WebSocket 地址
     server-url: ws://localhost:8080/ws/client
     # 启用系统监控（CPU/内存/磁盘/网络）
@@ -14,6 +14,18 @@ monitor:
     # docker-host: tcp://localhost:2375
     # 启用微服务健康监控
     microservice-enabled: false
+    # 瀚高数据库监控（HighGo 兼容 PostgreSQL JDBC）
+#    highgo-enabled: true
+#    highgo-url: jdbc:postgresql://127.0.0.1:5866/postgres
+    # highgo-username: monitor
+    # highgo-password: ${HIGHGO_PASSWORD:}
+    # 登录失败 SQL 必须返回单个数字；不同版本可从审计/日志表配置
+    # highgo-login-failure-sql: SELECT count(*) FROM monitor_login_failures WHERE event_time >= now() - interval '5 minutes'
+    # 大表重复查询 SQL 返回 user_name, client_addr, query, occurrences 四列，occurrences >= 10
+    # highgo-large-query-sql: SELECT usename, client_addr, query, calls FROM pg_stat_statements WHERE calls >= 10 ORDER BY calls DESC LIMIT 100
+    # 推荐配置审计日志路径，配置后优先增量读取日志，不再依赖上面的审计 SQL
+    # highgo-audit-log-path: /var/log/highgo/pg_log/highgo-2026-08-21.log
+    # highgo-large-query-min-occurrences: 10
     # 需要监控的微服务健康检查地址
     microservices:
       # - name: user-service

@@ -88,6 +88,12 @@ public class ClientWsHandler extends TextWebSocketHandler {
                         metricsService.markOnline(clientId);
                     }
                     break;
+                case "HIGHGO":
+                    if (msg.getHighgoMetrics() != null) {
+                        metricsService.updateHighgoMetrics(clientId, msg.getHighgoMetrics());
+                        metricsService.markOnline(clientId);
+                    }
+                    break;
                 default:
                     log.warn("未知消息类型: {}", msg.getType());
             }

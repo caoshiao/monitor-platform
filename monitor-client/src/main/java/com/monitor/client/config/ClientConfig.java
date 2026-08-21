@@ -52,6 +52,22 @@ public class ClientConfig {
     /** 是否启用微服务健康检查，默认 false */
     private boolean microserviceEnabled = false;
 
+    /** 是否启用瀚高数据库监控。 */
+    private boolean highgoEnabled = false;
+
+    private String highgoUrl;
+    private String highgoUsername;
+    private String highgoPassword;
+    /** 返回单行数字的登录失败统计 SQL，按 HighGo 版本配置。 */
+    private String highgoLoginFailureSql;
+    /** 返回 user_name, client_addr, query, occurrences 四列的大表重复查询 SQL。 */
+    private String highgoLargeQuerySql;
+
+    /** 瀚高审计日志路径；配置后优先使用日志增量解析。 */
+    private String highgoAuditLogPath;
+    /** 同一连接、同一表达到该次数后列为重复大表查询。 */
+    private long highgoLargeQueryMinOccurrences = 10;
+
     /** 是否校验微服务 HTTPS 证书，默认 false（内网监控通常跳过证书校验） */
     private boolean microserviceSslVerify = false;
 

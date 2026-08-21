@@ -52,4 +52,7 @@ public class ClientMessage {
 
     /** 微服务指标数据（当 type="MICROSERVICE" 时有效） */
     private MicroserviceMetrics microserviceMetrics;
+
+    /** HighGo/PostgreSQL 数据库指标（当 type="HIGHGO" 时有效） */
+    private HighgoMetrics highgoMetrics;
 }

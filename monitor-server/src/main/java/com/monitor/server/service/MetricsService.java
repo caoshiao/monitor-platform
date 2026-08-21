@@ -40,6 +40,8 @@ public class MetricsService {
     /** clientId → 最新微服务指标 */
     private final Map<String, MicroserviceMetrics> microserviceMap = new ConcurrentHashMap<>();
 
+    private final Map<String, HighgoMetrics> highgoMap = new ConcurrentHashMap<>();
+
     /** clientId → 主机名 */
     private final Map<String, String> hostnameMap = new ConcurrentHashMap<>();
 
@@ -62,6 +64,10 @@ public class MetricsService {
     /** 更新微服务指标缓存 */
     public void updateMicroserviceMetrics(String clientId, MicroserviceMetrics metrics) {
         microserviceMap.put(clientId, metrics);
+    }
+
+    public void updateHighgoMetrics(String clientId, HighgoMetrics metrics) {
+        highgoMap.put(clientId, metrics);
     }
 
     /** 标记客户端上线 */
@@ -97,6 +103,7 @@ public class MetricsService {
             snap.setSystemMetrics(systemMap.get(clientId));
             snap.setDockerMetrics(dockerMap.get(clientId));
             snap.setMicroserviceMetrics(microserviceMap.get(clientId));
+            snap.setHighgoMetrics(highgoMap.get(clientId));
             snapshots.add(snap);
         }
         msg.setClientSnapshots(snapshots);

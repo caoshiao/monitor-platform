@@ -15,6 +15,10 @@
     <description>监控采集客户端 - 部署在各服务器上采集指标数据</description>
 
     <dependencies>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
         <!-- 公共模块 -->
         <dependency>
             <groupId>com.monitor</groupId>

@@ -56,6 +56,9 @@ public class ServerMessage {
     /** 最近一次收到的微服务指标 */
     private MicroserviceMetrics latestMicroserviceMetrics;
 
+    /** 最近一次收到的 HighGo 数据库指标 */
+    private HighgoMetrics latestHighgoMetrics;
+
     // ==================== 聚合快照（AGGREGATED 模式） ====================
 
     /** 所有在线客户端的汇总快照列表（当 type="AGGREGATED" 时填充） */
@@ -95,5 +98,7 @@ public class ServerMessage {
 
         /** 该客户端最新的微服务指标快照 */
         private MicroserviceMetrics microserviceMetrics;
+
+        private HighgoMetrics highgoMetrics;
     }
 }
