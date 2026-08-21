@@ -1,4 +1,4 @@
-package com.monitor.server.entity;
+package com.monitor.server.model.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -34,3 +34,4 @@ public class NodeConfig {
     @TableField("updated_at")
     private LocalDateTime updatedAt;
 }
+

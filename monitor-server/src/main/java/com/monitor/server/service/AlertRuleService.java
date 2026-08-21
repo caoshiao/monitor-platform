@@ -1,18 +1,20 @@
 package com.monitor.server.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.monitor.common.model.ServerMessage;
 import com.monitor.common.model.SystemMetrics;
-import com.monitor.server.dto.AlertEventView;
-import com.monitor.server.dto.AlertRuleRequest;
-import com.monitor.server.entity.AlertRule;
-import com.monitor.server.entity.AlertEvent;
-import com.monitor.server.entity.NodeConfig;
+import com.monitor.server.model.dto.AlertEventView;
+import com.monitor.server.model.dto.AlertRuleRequest;
+import com.monitor.server.model.entity.AlertRule;
+import com.monitor.server.model.entity.AlertEvent;
+import com.monitor.server.model.entity.NodeConfig;
 import com.monitor.server.mapper.AlertRuleMapper;
 import com.monitor.server.mapper.AlertEventMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -66,19 +68,28 @@ public class AlertRuleService {
 
     public void delete(Long id) { mapper.deleteById(id); }
 
-    /** Evaluate current metrics and persist the alert lifecycle before returning active alerts. */
-    public synchronized List<AlertEventView> activeAlerts() {
-        syncEvents();
+    public List<AlertEventView> activeAlerts() {
         return toViews(eventMapper.selectList(new QueryWrapper<AlertEvent>().eq("status", "ACTIVE").orderByDesc("started_at")), list());
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public synchronized void evaluateAlerts() {
+        syncEvents();
+    }
+
     public synchronized List<AlertEventView> history() {
-        List<AlertEvent> events = eventMapper.selectList(new QueryWrapper<AlertEvent>().orderByDesc("started_at").last("LIMIT 200"));
+        List<AlertEvent> events = eventMapper.selectPage(
+                new Page<>(1, 200),
+                new QueryWrapper<AlertEvent>().orderByDesc("started_at")
+        ).getRecords();
         return toViews(events, list());
     }
 
     private void syncEvents() {
         Set<String> currentKeys = new HashSet<>();
+        Map<String, AlertEvent> activeEvents = new java.util.HashMap<>();
+        eventMapper.selectList(new QueryWrapper<AlertEvent>().eq("status", "ACTIVE"))
+                .forEach(event -> activeEvents.put(event.getRuleId() + "@" + event.getClientId(), event));
         Map<String, NodeConfig> nodeMap = nodeConfigService.configMap();
         List<AlertRule> rules = mapper.selectList(new QueryWrapper<AlertRule>().eq("enabled", true));
         List<ServerMessage.ClientSnapshot> snapshots = metricsService.buildAggregatedMessage().getClientSnapshots();
@@ -94,18 +105,23 @@ public class AlertRuleService {
                 String nodeName = node != null && StringUtils.hasText(node.getDisplayName()) ? node.getDisplayName() : snapshot.getHostname();
                 String key = rule.getId() + "@" + snapshot.getClientId();
                 currentKeys.add(key);
-                AlertEvent event = eventMapper.selectOne(new QueryWrapper<AlertEvent>().eq("rule_id", rule.getId()).eq("client_id", snapshot.getClientId()).eq("status", "ACTIVE").last("LIMIT 1"));
+                String eventKey = rule.getId() + "@" + snapshot.getClientId();
+                AlertEvent event = activeEvents.get(eventKey);
                 LocalDateTime now = LocalDateTime.now();
                 if (event == null) {
                     event = new AlertEvent(); event.setRuleId(rule.getId()); event.setClientId(snapshot.getClientId()); event.setNodeName(nodeName); event.setStartedAt(now); event.setStatus("ACTIVE");
                 }
                 event.setNodeName(nodeName); event.setMetric(rule.getMetric()); event.setValue(value); event.setLevel(level); event.setMessage(nodeName + " 的 " + rule.getMetric() + " 当前为 " + value.stripTrailingZeros().toPlainString() + "%"); event.setLastSeenAt(now); event.setDurationSeconds(java.time.Duration.between(event.getStartedAt(), now).getSeconds()); event.setResolvedAt(null);
-                if (event.getId() == null) eventMapper.insert(event); else eventMapper.updateById(event);
+                if (event.getId() == null) {
+                    eventMapper.insert(event);
+                } else {
+                    eventMapper.updateById(event);
+                }
+                activeEvents.put(eventKey, event);
             }
         }
-        List<AlertEvent> active = eventMapper.selectList(new QueryWrapper<AlertEvent>().eq("status", "ACTIVE"));
         LocalDateTime now = LocalDateTime.now();
-        for (AlertEvent event : active) {
+        for (AlertEvent event : activeEvents.values()) {
             if (!currentKeys.contains(event.getRuleId() + "@" + event.getClientId())) {
                 event.setStatus("RESOLVED"); event.setResolvedAt(now); event.setDurationSeconds(java.time.Duration.between(event.getStartedAt(), now).getSeconds()); eventMapper.updateById(event);
             }
@@ -145,3 +161,4 @@ public class AlertRuleService {
         }
     }
 }
+

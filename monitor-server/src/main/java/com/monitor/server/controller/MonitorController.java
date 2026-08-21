@@ -1,8 +1,9 @@
-package com.monitor.server.web;
+package com.monitor.server.controller;
 
 import com.monitor.common.model.ServerMessage;
 import com.monitor.server.service.MetricsService;
 import com.monitor.server.service.NodeConfigService;
+import com.monitor.server.model.dto.NodeConfigView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
 
 /** REST read model for the separately deployed Vue frontend. */
 @RestController
@@ -43,7 +45,7 @@ public class MonitorController {
     }
 
     @GetMapping("/node-configs")
-    public Object nodeConfigs() {
+    public List<NodeConfigView> nodeConfigs() {
         return nodeConfigService.listViews();
     }
 }

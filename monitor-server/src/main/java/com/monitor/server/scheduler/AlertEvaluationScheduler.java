@@ -13,6 +13,6 @@ public class AlertEvaluationScheduler {
 
     @Scheduled(fixedDelayString = "${monitor.server.alert-interval:5000}")
     public void evaluate() {
-        alertRuleService.activeAlerts();
+        alertRuleService.evaluateAlerts();
     }
 }

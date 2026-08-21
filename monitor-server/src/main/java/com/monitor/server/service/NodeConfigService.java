@@ -2,9 +2,9 @@ package com.monitor.server.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.monitor.common.model.ServerMessage;
-import com.monitor.server.dto.NodeConfigRequest;
-import com.monitor.server.dto.NodeConfigView;
-import com.monitor.server.entity.NodeConfig;
+import com.monitor.server.model.dto.NodeConfigRequest;
+import com.monitor.server.model.dto.NodeConfigView;
+import com.monitor.server.model.entity.NodeConfig;
 import com.monitor.server.mapper.NodeConfigMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -42,6 +42,14 @@ public class NodeConfigService {
 
     public List<NodeConfig> list() {
         return mapper.selectList(new QueryWrapper<>());
+    }
+
+    public NodeConfig getById(Long id) {
+        NodeConfig node = mapper.selectById(id);
+        if (node == null) {
+            throw new IllegalArgumentException("节点不存在");
+        }
+        return node;
     }
 
     public NodeConfig save(NodeConfigRequest request) {
@@ -101,3 +109,4 @@ public class NodeConfigService {
         return view;
     }
 }
+

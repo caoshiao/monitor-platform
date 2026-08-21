@@ -1,4 +1,4 @@
-package com.monitor.server.dto;
+package com.monitor.server.model.dto;
 
 import lombok.Data;
 

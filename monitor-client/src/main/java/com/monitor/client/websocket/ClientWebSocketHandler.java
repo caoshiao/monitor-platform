@@ -83,7 +83,11 @@ public class ClientWebSocketHandler implements WebSocketHandler {
     /** 执行实际的连接操作：先断开旧连接，再创建新连接 */
     private void doConnect() {
         if (connectionManager != null) {
-            try { connectionManager.stop(); } catch (Exception ignored) {}
+            try {
+                connectionManager.stop();
+            } catch (Exception e) {
+                log.warn("停止旧 WebSocket 连接失败", e);
+            }
         }
         StandardWebSocketClient client = new StandardWebSocketClient();
         connectionManager = new WebSocketConnectionManager(client, this, serverUrl);
@@ -91,7 +95,7 @@ public class ClientWebSocketHandler implements WebSocketHandler {
         try {
             connectionManager.start();
         } catch (Exception e) {
-            log.error("连接服务端失败 [{}]: {}", serverUrl, e.getMessage());
+            log.error("连接服务端失败 [{}]", serverUrl, e);
             scheduleReconnect();
         }
     }
@@ -128,9 +132,9 @@ public class ClientWebSocketHandler implements WebSocketHandler {
             String json = objectMapper.writeValueAsString(message);
             session.sendMessage(new TextMessage(json));
         } catch (JsonProcessingException e) {
-            log.error("消息序列化失败: {}", e.getMessage());
+            log.error("消息序列化失败", e);
         } catch (IOException e) {
-            log.error("消息发送失败: {}", e.getMessage());
+            log.error("消息发送失败", e);
         }
     }
 
@@ -184,9 +188,18 @@ public class ClientWebSocketHandler implements WebSocketHandler {
         shuttingDown = true;
         this.connected = false;
         if (connectionManager != null) {
-            try { connectionManager.stop(); } catch (Exception ignored) {}
+            try {
+                connectionManager.stop();
+            } catch (Exception e) {
+                log.warn("停止 WebSocket 连接失败", e);
+            }
         }
         reconnectExecutor.shutdown();
-        try { reconnectExecutor.awaitTermination(2, TimeUnit.SECONDS); } catch (InterruptedException ignored) {}
+        try {
+            reconnectExecutor.awaitTermination(2, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("等待重连线程池关闭时被中断", e);
+        }
     }
 }

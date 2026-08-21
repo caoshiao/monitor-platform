@@ -75,12 +75,12 @@ java -jar target/monitor-server-1.0.0-SNAPSHOT.jar --spring.config.location=/pat
 
 ### 3.4 PostgreSQL 12 数据库
 
-节点配置和告警规则使用 MyBatis-Plus 持久化到 PostgreSQL 12。默认连接配置为：
+节点配置和告警规则使用 MyBatis-Plus 持久化到 PostgreSQL 12。连接信息请通过部署环境注入：
 
 ```yaml
-url: jdbc:postgresql://192.168.222.128:55432/monitor_platform
-username: szh
-password: Szh,111111
+MONITOR_DB_URL=jdbc:postgresql://192.168.222.128:55432/monitor_platform
+MONITOR_DB_USERNAME=szh
+MONITOR_DB_PASSWORD=请通过部署环境注入
 ```
 
 首次部署请在 PostgreSQL 上创建数据库（已有同名数据库可跳过）：

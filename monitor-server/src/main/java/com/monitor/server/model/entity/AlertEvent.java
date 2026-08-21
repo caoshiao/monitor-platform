@@ -1,4 +1,4 @@
-package com.monitor.server.entity;
+package com.monitor.server.model.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -26,3 +26,4 @@ public class AlertEvent {
     @TableField("resolved_at") private LocalDateTime resolvedAt;
     @TableField("duration_seconds") private Long durationSeconds;
 }
+

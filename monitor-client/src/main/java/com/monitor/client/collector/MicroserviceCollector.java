@@ -118,7 +118,7 @@ public class MicroserviceCollector {
             conn.setRequestMethod("GET");
             int code = conn.getResponseCode();
             return new HealthCheckResult(code >= 200 && code < 400, System.currentTimeMillis() - start, null);
-        } catch (Exception e) {
+        } catch (IOException e) {
             log.debug("微服务健康检查失败 [{}]: {}", url, e.getMessage());
             return new HealthCheckResult(false, -1, e.getMessage());
         } finally {

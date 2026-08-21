@@ -102,8 +102,8 @@ public class CollectScheduler {
             msg.setClientId(clientId);
             msg.setSystemMetrics(m);
             wsHandler.sendMessage(msg);
-        } catch (Exception e) {
-            log.error("采集系统指标失败: {}", e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("采集系统指标失败, clientId={}", clientId, e);
         }
     }
 
@@ -121,8 +121,8 @@ public class CollectScheduler {
             msg.setClientId(clientId);
             msg.setDockerMetrics(m);
             wsHandler.sendMessage(msg);
-        } catch (Exception e) {
-            log.error("采集 Docker 指标失败: {}", e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("采集 Docker 指标失败, clientId={}, dockerHost={}", clientId, config.getDockerHost(), e);
         }
     }
 
@@ -140,8 +140,8 @@ public class CollectScheduler {
             msg.setClientId(clientId);
             msg.setMicroserviceMetrics(m);
             wsHandler.sendMessage(msg);
-        } catch (Exception e) {
-            log.error("采集微服务指标失败: {}", e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("采集微服务指标失败, clientId={}", clientId, e);
         }
     }
 }

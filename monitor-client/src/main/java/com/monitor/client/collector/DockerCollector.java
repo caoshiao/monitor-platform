@@ -112,13 +112,17 @@ public class DockerCollector {
             List<Image> images = dockerClient.listImagesCmd().exec();
             metrics.setTotalImages(images.size());
 
-        } catch (Exception e) {
-            log.error("Docker 采集失败: {}", e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("Docker 采集失败, dockerHost={}", dockerHost, e);
             metrics.setTotalContainers(-1);  // -1 = 采集失败标记
             metrics.setTotalImages(-1);
         } finally {
             if (dockerClient != null) {
-                try { dockerClient.close(); } catch (Exception ignored) {}
+                try {
+                    dockerClient.close();
+                } catch (Exception e) {
+                    log.warn("关闭 Docker 客户端失败", e);
+                }
             }
         }
         return metrics;
