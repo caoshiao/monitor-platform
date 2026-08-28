@@ -19,6 +19,11 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.highgo</groupId>
+            <artifactId>HgdbJdbc</artifactId>
+            <version>6.2.2</version>
+        </dependency>
         <!-- 公共模块 -->
         <dependency>
             <groupId>com.monitor</groupId>

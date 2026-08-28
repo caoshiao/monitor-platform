@@ -5,11 +5,16 @@ server:
 spring:
   application:
     name: monitor-server
+#  datasource:
+#    url: ${MONITOR_DB_URL:jdbc:postgresql://192.168.222.128:55432/monitor_platform}
+#    username: ${MONITOR_DB_USERNAME:szh}
+#    password: ${MONITOR_DB_PASSWORD:Szh,111111}
+#    driver-class-name: org.postgresql.Driver
   datasource:
-    url: ${MONITOR_DB_URL:jdbc:postgresql://192.168.222.128:55432/monitor_platform}
+    url: ${MONITOR_DB_URL:jdbc:highgo://10.1.0.228:5866/monitor_platform}
     username: ${MONITOR_DB_USERNAME:szh}
-    password: ${MONITOR_DB_PASSWORD:Szh,111111}
-    driver-class-name: org.postgresql.Driver
+    password: ${MONITOR_DB_PASSWORD:Szh@111111}
+    driver-class-name: com.highgo.jdbc.Driver
   sql:
     init:
       mode: always
