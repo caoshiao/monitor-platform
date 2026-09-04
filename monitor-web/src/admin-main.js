@@ -7,4 +7,4 @@ import './styles/theme.css'
 Vue.use(ElementUI)
 Vue.config.productionTip = false
 
-new Vue({ render: h => h(AdminApp) }).$mount('#app')
+new Vue({ render: (h) => h(AdminApp) }).$mount('#app')

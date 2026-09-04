@@ -1,0 +1,101 @@
+.dashboard-lower {
+  position: relative;
+  display: block;
+  margin-top: 12px;
+}
+.dashboard-panel {
+  width: 100%;
+  min-height: 220px;
+  padding: 16px 18px;
+  background: linear-gradient(145deg, #112844e8, #0d1929f2);
+  border: 1px solid #2e6190;
+  border-radius: 2px;
+}
+.dashboard-panel__title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 11px;
+  border-bottom: 1px solid #2e619066;
+}
+.dashboard-panel__title span {
+  font-size: 14px;
+  font-weight: 700;
+}
+.dashboard-panel__title small {
+  color: #4f82af;
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+.node-status-list {
+  display: grid;
+}
+.node-status-row {
+  display: grid;
+  grid-template-columns:
+    10px minmax(120px, 1fr) minmax(140px, 1.2fr) minmax(100px, 0.7fr) minmax(100px, 0.7fr)
+    auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  border-bottom: 1px solid #203b5666;
+  font-size: 11px;
+}
+.node-status-row code,
+.node-status-metric {
+  color: var(--muted);
+  font-size: 10px;
+}
+.node-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+.dashboard-panel__empty {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.dashboard-panel__empty--ok {
+  color: var(--green);
+}
+.recent-alert-list {
+  display: grid;
+  gap: 7px;
+  padding-top: 10px;
+}
+.recent-alert-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-left: 2px solid var(--yellow);
+  background: #f4b7400b;
+  color: var(--yellow);
+  font-size: 11px;
+}
+.recent-alert-row span {
+  flex: 1;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-alert-row.is-critical {
+  border-left-color: var(--red);
+  color: var(--red);
+  background: #fb64770c;
+}
+@media (max-width: 800px) {
+  .node-status-row {
+    grid-template-columns: 10px 1fr auto;
+  }
+  .node-status-row code,
+  .node-status-metric {
+    display: none;
+  }
+}

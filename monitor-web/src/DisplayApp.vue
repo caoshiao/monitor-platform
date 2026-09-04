@@ -1,17 +1,32 @@
 <template>
   <div class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark"><i class="el-icon-data-analysis" /></span>
-        <span><b>MONITOR</b><small> DISPLAY</small></span>
-      </div>
-      <div class="page-identity"><i class="el-icon-monitor" /> 实时监控展示中心</div>
-      <div class="topbar-meta"><span class="pulse" /> LIVE</div>
-    </header>
-    <main class="page-wrap"><overview /></main>
+    <main class="page-wrap page-wrap--display">
+      <display-home v-if="route === '/'" /><module-page v-else :module="route.slice(1)" />
+    </main>
   </div>
 </template>
 <script>
-import Overview from './views/Overview.vue'
-export default { components: { Overview } }
+import DisplayHome from './views/DisplayHome.vue'
+import ModulePage from './views/ModulePage.vue'
+const HOME_ROUTE = '/'
+export default {
+  components: { DisplayHome, ModulePage },
+  data() {
+    return { route: this.getCurrentRoute() }
+  },
+  mounted() {
+    window.addEventListener('hashchange', this.handleRouteChange)
+  },
+  beforeDestroy() {
+    window.removeEventListener('hashchange', this.handleRouteChange)
+  },
+  methods: {
+    getCurrentRoute() {
+      return window.location.hash.replace('#', '') || HOME_ROUTE
+    },
+    handleRouteChange() {
+      this.route = this.getCurrentRoute()
+    }
+  }
+}
 </script>
