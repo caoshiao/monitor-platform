@@ -24,7 +24,8 @@ input {
   font-family: inherit;
 }
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 .topbar {
   height: 68px;

@@ -9,7 +9,7 @@
       <el-button plain icon="el-icon-back" @click="goHome">返回总览</el-button>
     </div>
 
-    <div v-if="!clients.length && module !== 'alerts'" class="empty-state">
+    <div v-if="!clients.length && !['alerts', 'nodes'].includes(module)" class="empty-state">
       <i class="el-icon-connection" />
       <h3>等待采集节点上线</h3>
       <p>请启动 monitor-client，数据将通过 WebSocket 自动出现在这里。</p>
@@ -29,6 +29,14 @@
         </div>
         <div v-if="!alerts.length" class="panel-empty">当前没有活动告警</div>
       </div>
+    </div>
+
+    <div v-if="module === 'nodes'" class="client-panel">
+      <div class="metrics-grid compact">
+        <metric-card label="节点总数" :value="nodeTotal" unit="个" icon="el-icon-connection" />
+        <metric-card label="在线节点" :value="clients.length" unit="个" tone="green" icon="el-icon-success" />
+      </div>
+      <data-table :columns="nodeColumns" :rows="nodeRows" />
     </div>
 
     <div v-for="client in clients" v-else :key="client.clientId" class="client-panel">
@@ -64,7 +72,7 @@
           icon="el-icon-warning"
         />
       </div>
-      <div v-else-if="module === 'services'" class="metrics-grid compact">
+      <div v-else-if="['services', 'external-api'].includes(module)" class="metrics-grid compact">
         <metric-card
           label="服务总数"
           :value="services(client).totalServices"
@@ -120,16 +128,29 @@
 </template>
 
 <script>
+import DataTable from '../components/DataTable.vue'
 import MetricCard from '../components/MetricCard.vue'
-import { getActiveAlerts, getSnapshot, websocketUrl } from '../services/monitor'
+import { getActiveAlerts, getPublicNodeConfigs, getSnapshot, websocketUrl } from '../services/monitor'
 import { DISPLAY_MODULE_META } from '../constants/displayModules'
 
 /** 展示端模块详情页，按路由模块展示节点实时数据。 */
 export default {
-  components: { MetricCard },
+  components: { DataTable, MetricCard },
   props: { module: { type: String, default: 'system' } },
   data() {
-    return { snapshot: { clientSnapshots: [] }, alerts: [], socket: null }
+    return {
+      snapshot: { clientSnapshots: [] },
+      alerts: [],
+      nodeConfigs: [],
+      socket: null,
+      nodeColumns: [
+        { key: 'hostname', label: '节点' },
+        { key: 'clientId', label: '客户端 ID' },
+        { key: 'environment', label: '环境' },
+        { key: 'location', label: '位置' },
+        { key: 'status', label: '状态', type: 'status' }
+      ]
+    }
   },
   computed: {
     clients() {
@@ -148,6 +169,20 @@ export default {
     },
     description() {
       return this.moduleMeta.description
+    },
+    nodeTotal() {
+      return this.nodeConfigs.length || this.clients.length
+    },
+    nodeRows() {
+      const onlineIds = new Set(this.clients.map((client) => client.clientId))
+      const configs = this.nodeConfigs.length
+        ? this.nodeConfigs
+        : this.clients.map((client) => ({ ...client, enabled: true }))
+      return configs.map((node) => ({
+        ...node,
+        hostname: node.displayName || node.hostname || node.clientId,
+        status: onlineIds.has(node.clientId) ? 'ONLINE' : 'OFFLINE'
+      }))
     }
   },
   mounted() {
@@ -170,6 +205,13 @@ export default {
           this.alerts = data || []
         })
         .catch(() => {})
+      getPublicNodeConfigs()
+        .then((data) => {
+          this.nodeConfigs = data || []
+        })
+        .catch((error) => {
+          this.$log && this.$log.warn('节点配置加载失败', error)
+        })
     },
     handleSocketMessage(event) {
       try {

@@ -32,7 +32,7 @@ export default {
   },
   methods: {
     statusClass(value) {
-      const isNormal = value === 'UP' || value === 'running'
+      const isNormal = value === 'UP' || value === 'ONLINE' || value === 'running'
       return ['status-tag', isNormal ? 'ok' : 'bad']
     },
     displayValue(value) {

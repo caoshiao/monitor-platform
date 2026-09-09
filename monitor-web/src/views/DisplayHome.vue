@@ -8,11 +8,19 @@
       <p>MONITOR PLATFORM / LIVE OVERVIEW</p>
     </div>
     <div class="dashboard-summary">
-      <div v-for="item in summary" :key="item.label" class="dashboard-summary__item">
+      <button
+        v-for="item in summary"
+        :key="item.label"
+        class="dashboard-summary__item"
+        :class="{ 'is-clickable': item.route }"
+        type="button"
+        @click="item.route && goToModule(item.route)"
+      >
         <span>{{ item.label }}</span
         ><strong :class="item.tone">{{ item.value }}</strong
         ><small>{{ item.note }}</small>
-      </div>
+        <i v-if="item.route" class="el-icon-arrow-right dashboard-summary__arrow" />
+      </button>
     </div>
     <div class="module-overview-grid">
       <div class="module-overview-column module-overview-column--left">
@@ -38,28 +46,19 @@
             <span><i class="el-icon-bell" /> 最新告警</span><small>RECENT ALERTS</small>
           </div>
           <div class="latest-alert-panel__summary">
-            <strong>{{ activeAlerts.length }}</strong>
-            <span>当前待处理告警</span>
+            <strong>{{ activeAlerts.length }}</strong><span>当前待处理告警</span>
             <el-tag size="mini" :type="activeAlerts.length ? 'danger' : 'success'">{{ activeAlerts.length ? '需要关注' : '运行正常' }}</el-tag>
           </div>
           <div v-if="activeAlerts.length" class="latest-alert-list">
-            <div
-              v-for="event in activeAlerts.slice(0, alertLimit)"
-              :key="alertKey(event)"
-              class="latest-alert-item"
-              :class="{ 'is-critical': event.level === 'CRITICAL' }"
-            >
-              <i class="el-icon-warning-outline" /><span>{{ event.message }}</span
-              ><em>{{ event.level }}</em>
+            <div v-for="event in activeAlerts.slice(0, alertLimit)" :key="alertKey(event)" class="latest-alert-item" :class="{ 'is-critical': event.level === 'CRITICAL' }">
+              <i class="el-icon-warning-outline" /><span>{{ event.message }}</span><em>{{ event.level }}</em>
             </div>
           </div>
           <div v-else class="latest-alert-empty"><i class="el-icon-success" /> 当前运行正常</div>
-          <span class="latest-alert-panel__footer"
-            >查看全部告警 <i class="el-icon-arrow-right"
-          /></span>
+          <span class="latest-alert-panel__footer">查看全部告警 <i class="el-icon-arrow-right" /></span>
         </button>
       </div>
-      <div class="module-overview-column module-overview-column--right">
+      <div v-if="rightModules.length" class="module-overview-column module-overview-column--right">
         <button
           v-for="module in rightModules"
           :key="module.key"
@@ -77,6 +76,7 @@
         </button>
       </div>
     </div>
+    
     <div class="dashboard-lower">
       <div class="dashboard-panel dashboard-panel--nodes">
         <div class="dashboard-panel__title">
@@ -98,35 +98,40 @@
 </template>
 
 <script>
-import { getActiveAlerts, getSnapshot } from '../services/monitor'
+import { getActiveAlerts, getPublicNodeConfigs, getSnapshot } from '../services/monitor'
 import { DISPLAY_MODULES } from '../constants/displayModules'
 
 const REFRESH_INTERVAL = 10000
 const ALERT_LIMIT = 4
 
-/** 展示端首页，按三个独立列展示监控模块和运行摘要。 */
+/** 展示端首页，展示监控模块入口、运行摘要及节点状态。 */
 export default {
   data() {
     return {
       snapshot: { clientSnapshots: [] },
       activeAlerts: [],
       modules: DISPLAY_MODULES,
+      nodeConfigs: [],
       alertLimit: ALERT_LIMIT,
       refreshTimer: null
     }
   },
   computed: {
     clients() {
-      return this.snapshot.clientSnapshots || []
+      const snapshots = this.snapshot.clientSnapshots || []
+      if (!this.nodeConfigs.length) {
+        return snapshots
+      }
+      const enabledIds = new Set(
+        this.nodeConfigs.filter((node) => node.enabled !== false).map((node) => node.clientId)
+      )
+      return snapshots.filter((client) => enabledIds.has(client.clientId))
     },
     leftModules() {
-      return [this.modules[0], this.modules[1]]
-    },
-    middleModules() {
-      return []
+      return this.modules.filter((module) => module.key === 'external-api')
     },
     rightModules() {
-      return [this.modules[2], this.modules[3], this.modules[5]]
+      return this.modules.filter((module) => module.key === 'highgo')
     },
     totalRunning() {
       return this.clients.reduce(
@@ -140,12 +145,39 @@ export default {
         0
       )
     },
+    totalServices() {
+      return this.clients.reduce(
+        (total, client) => total + Number((client.microserviceMetrics || {}).totalServices || 0),
+        0
+      )
+    },
+    totalNodes() {
+      return this.nodeConfigs.filter((node) => node.enabled !== false).length || this.clients.length
+    },
     summary() {
       return [
-        { label: '在线节点', value: this.clients.length, note: 'ONLINE CLIENTS', tone: 'blue' },
+        {
+          label: '在线节点',
+          value: `${this.clients.length} / ${this.totalNodes}`,
+          note: '在线 / 总节点，点击查看详情',
+          tone: 'blue',
+          route: 'nodes'
+        },
         { label: '活动告警', value: this.activeAlerts.length, note: 'ACTIVE ALERTS', tone: 'red' },
-        { label: '运行容器', value: this.totalRunning, note: 'RUNNING CONTAINERS', tone: 'green' },
-        { label: '健康微服务', value: this.healthyServices, note: 'HEALTHY SERVICES', tone: 'cyan' }
+        {
+          label: '运行容器',
+          value: this.totalRunning,
+          note: 'RUNNING CONTAINERS，点击查看详情',
+          tone: 'green',
+          route: 'docker'
+        },
+        {
+          label: '健康微服务',
+          value: `${this.healthyServices} / ${this.totalServices}`,
+          note: '健康 / 总服务，点击查看详情',
+          tone: 'cyan',
+          route: 'services'
+        }
       ]
     }
   },
@@ -158,12 +190,15 @@ export default {
   },
   methods: {
     loadDashboardData() {
-      Promise.all([getSnapshot(), getActiveAlerts()])
-        .then(([snapshot, alerts]) => {
+      Promise.all([getSnapshot(), getActiveAlerts(), getPublicNodeConfigs()])
+        .then(([snapshot, alerts, nodeConfigs]) => {
           this.snapshot = snapshot || { clientSnapshots: [] }
           this.activeAlerts = alerts || []
+          this.nodeConfigs = nodeConfigs || []
         })
-        .catch(() => {})
+        .catch((error) => {
+          this.$log && this.$log.warn('展示端首页数据加载失败', error)
+        })
     },
     goToModule(moduleKey) {
       window.location.hash = `/${moduleKey}`
