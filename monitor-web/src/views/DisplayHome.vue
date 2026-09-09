@@ -5,8 +5,8 @@
         <span class="dashboard-heading__ornament" /><span>监控中心</span
         ><span class="dashboard-heading__ornament dashboard-heading__ornament--right" />
       </div>
-      <p>MONITOR PLATFORM / LIVE OVERVIEW</p>
     </div>
+
     <div class="dashboard-summary">
       <button
         v-for="item in summary"
@@ -22,6 +22,7 @@
         <i v-if="item.route" class="el-icon-arrow-right dashboard-summary__arrow" />
       </button>
     </div>
+
     <div class="module-overview-grid">
       <div class="module-overview-column module-overview-column--left">
         <button
@@ -58,6 +59,7 @@
           <span class="latest-alert-panel__footer">查看全部告警 <i class="el-icon-arrow-right" /></span>
         </button>
       </div>
+
       <div v-if="rightModules.length" class="module-overview-column module-overview-column--right">
         <button
           v-for="module in rightModules"
@@ -83,12 +85,20 @@
           <span>节点运行状态</span><small>NODE STATUS / {{ clients.length }} NODES</small>
         </div>
         <div v-if="clients.length" class="node-status-list">
+          <div class="node-status-row node-status-row--header">
+            <span />
+            <span>节点名称</span><span>客户端 ID</span><span>CPU 使用率</span>
+            <span>内存使用率</span><span>磁盘使用率</span><span>系统负载</span><span>状态</span>
+          </div>
           <div v-for="client in clients" :key="client.clientId" class="node-status-row">
-            <span class="node-status-dot" /><b>{{ client.hostname || client.clientId }}</b
-            ><code>{{ client.clientId }}</code
-            ><span class="node-status-metric">CPU {{ formatMetric(clientCpu(client)) }}%</span
-            ><span class="node-status-metric">负载 {{ formatMetric(clientLoad(client)) }}</span
-            ><el-tag size="mini" type="success">ONLINE</el-tag>
+            <span class="node-status-dot" />
+              <b>{{ client.hostname || client.clientId }}</b>
+              <code>{{ client.clientId }}</code>
+            <span class="node-status-metric">{{ formatMetric(clientCpu(client)) }}%</span>
+            <span class="node-status-metric">{{ formatMetric(clientMemory(client)) }}%</span>
+            <span class="node-status-metric">{{ formatMetric(clientDisk(client)) }}%</span>
+            <span class="node-status-metric">{{ formatMetric(clientLoad(client)) }}</span>
+            <el-tag size="mini" type="success">在线</el-tag>
           </div>
         </div>
         <div v-else class="dashboard-panel__empty">暂无在线节点</div>
@@ -98,11 +108,12 @@
 </template>
 
 <script>
-import { getActiveAlerts, getPublicNodeConfigs, getSnapshot } from '../services/monitor'
+import { getActiveAlerts, getPublicNodeConfigs, websocketUrl } from '../services/monitor'
 import { DISPLAY_MODULES } from '../constants/displayModules'
 
-const REFRESH_INTERVAL = 10000
 const ALERT_LIMIT = 4
+const STATIC_REFRESH_INTERVAL = 30000
+const RECONNECT_INTERVAL = 3000
 
 /** 展示端首页，展示监控模块入口、运行摘要及节点状态。 */
 export default {
@@ -113,7 +124,9 @@ export default {
       modules: DISPLAY_MODULES,
       nodeConfigs: [],
       alertLimit: ALERT_LIMIT,
-      refreshTimer: null
+      refreshTimer: null,
+      reconnectTimer: null,
+      socket: null
     }
   },
   computed: {
@@ -182,23 +195,42 @@ export default {
     }
   },
   mounted() {
-    this.loadDashboardData()
-    this.refreshTimer = setInterval(this.loadDashboardData, REFRESH_INTERVAL)
+    this.loadStaticData()
+    this.connectWebSocket()
+    this.refreshTimer = setInterval(this.loadStaticData, STATIC_REFRESH_INTERVAL)
   },
   beforeDestroy() {
     clearInterval(this.refreshTimer)
+    clearTimeout(this.reconnectTimer)
+    if (this.socket) this.socket.close()
   },
   methods: {
-    loadDashboardData() {
-      Promise.all([getSnapshot(), getActiveAlerts(), getPublicNodeConfigs()])
-        .then(([snapshot, alerts, nodeConfigs]) => {
-          this.snapshot = snapshot || { clientSnapshots: [] }
+    loadStaticData() {
+      Promise.all([getActiveAlerts(), getPublicNodeConfigs()])
+        .then(([alerts, nodeConfigs]) => {
           this.activeAlerts = alerts || []
           this.nodeConfigs = nodeConfigs || []
         })
         .catch((error) => {
           this.$log && this.$log.warn('展示端首页数据加载失败', error)
         })
+    },
+    connectWebSocket() {
+      this.socket = new WebSocket(websocketUrl())
+      this.socket.onmessage = (event) => {
+        try {
+          this.snapshot = JSON.parse(event.data) || { clientSnapshots: [] }
+        } catch (error) {
+          this.$log && this.$log.warn('节点实时数据解析失败', error)
+        }
+      }
+      this.socket.onerror = (error) => {
+        this.$log && this.$log.warn('节点 WebSocket 连接异常', error)
+      }
+      this.socket.onclose = () => {
+        this.socket = null
+        this.reconnectTimer = setTimeout(() => this.connectWebSocket(), RECONNECT_INTERVAL)
+      }
     },
     goToModule(moduleKey) {
       window.location.hash = `/${moduleKey}`
@@ -208,6 +240,12 @@ export default {
     },
     clientLoad(client) {
       return client.systemMetrics && client.systemMetrics.loadAverage
+    },
+    clientMemory(client) {
+      return client.systemMetrics && client.systemMetrics.memoryUsage
+    },
+    clientDisk(client) {
+      return client.systemMetrics && client.systemMetrics.diskUsage
     },
     formatMetric(value) {
       return Number(value || 0).toFixed(1)

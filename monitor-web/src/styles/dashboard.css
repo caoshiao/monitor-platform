@@ -35,14 +35,19 @@
 }
 .node-status-row {
   display: grid;
-  grid-template-columns:
-    10px minmax(120px, 1fr) minmax(140px, 1.2fr) minmax(100px, 0.7fr) minmax(100px, 0.7fr)
-    auto;
+  grid-template-columns: minmax(0, 0.35fr) minmax(7rem, 1.1fr) minmax(8rem, 1.3fr) repeat(4, minmax(5.5rem, 0.8fr)) minmax(4rem, 0.55fr);
   align-items: center;
-  gap: 8px;
+  gap: clamp(0.5rem, 1.2vw, 1rem);
   min-height: clamp(2rem, 4vw, 2.5rem);
   border-bottom: 1px solid #203b5666;
   font-size: 11px;
+}
+.node-status-row--header {
+  min-height: auto;
+  padding: 0.45rem 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  border-bottom-color: #2e6190;
 }
 .node-status-row code,
 .node-status-metric {

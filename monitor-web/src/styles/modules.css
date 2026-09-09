@@ -121,9 +121,9 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 2vh;
+  gap: 1vh;
   align-items: start;
-  height: 33vh;
+  height: 35vh;
 }
 .module-overview-column {
   display: grid;
