@@ -1,6 +1,7 @@
 package com.monitor.client.collector;
 
 import com.monitor.common.model.SystemMetrics;
+import com.monitor.client.config.ClientConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import oshi.SystemInfo;
@@ -94,17 +95,19 @@ public class SystemCollector {
      * @param clientId 客户端唯一标识，会写入返回的 {@link SystemMetrics} 中
      * @return 填充了当前时刻所有系统指标的 {@link SystemMetrics} 对象
      */
-    public SystemMetrics collect(String clientId) {
+    public SystemMetrics collect(String clientId, ClientConfig config) {
         SystemMetrics metrics = new SystemMetrics();
         metrics.setClientId(clientId);
         metrics.setCollectTime(LocalDateTime.now());
 
-        // IP 地址（失败降级为 "unknown"）
+        // 主机名和对外地址分开上报，避免把 /etc/hosts 的回环解析结果当作节点 IP。
         try {
-            metrics.setHostname(InetAddress.getLocalHost().getHostAddress());
+            metrics.setHostname(InetAddress.getLocalHost().getHostName());
+            metrics.setIpAddress(resolveIpAddress(config));
         } catch (UnknownHostException e) {
             metrics.setHostname("unknown");
-            log.debug("获取 IP 地址失败", e);
+            metrics.setIpAddress("unknown");
+            log.debug("获取主机名失败", e);
         }
 
         // === CPU ===
@@ -156,6 +159,20 @@ public class SystemCollector {
         metrics.setJvmNonHeapUsage(0);
 
         return metrics;
+    }
+
+    /** 解析节点 IP，优先使用客户端配置，避免容器网卡地址不稳定。 */
+    private String resolveIpAddress(ClientConfig config) {
+        if (config != null && config.getNodeIpAddress() != null
+                && !config.getNodeIpAddress().trim().isEmpty()) {
+            return config.getNodeIpAddress().trim();
+        }
+        try {
+            return InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            log.debug("自动获取节点 IP 失败", e);
+            return "unknown";
+        }
     }
 
     /**

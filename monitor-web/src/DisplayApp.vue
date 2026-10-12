@@ -1,6 +1,6 @@
 <template>
-  <div class="app-shell">
-    <main class="page-wrap page-wrap--display">
+  <div class="app-shell" :class="{ 'display-detail-shell': route !== '/' }">
+    <main class="page-wrap page-wrap--display" :class="{ 'page-wrap--detail': route !== '/' }">
       <display-home v-if="route === '/'" /><module-page v-else :module="route.slice(1)" />
     </main>
   </div>

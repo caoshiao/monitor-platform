@@ -3,10 +3,10 @@
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark brand-mark--admin"><i class="el-icon-setting" /></span>
-        <span><b>MONITOR</b><small> ADMIN</small></span>
+        <span><b>监控平台</b></span>
       </div>
-      <div class="page-identity"><i class="el-icon-lock" /> 监控平台后台管理</div>
-      <div class="topbar-meta">ADMIN CONSOLE</div>
+      <div class="page-identity"><i class="el-icon-lock" /> 后台管理</div>
+      <div class="topbar-meta">系统配置</div>
     </header>
     <main class="page-wrap"><admin /></main>
   </div>

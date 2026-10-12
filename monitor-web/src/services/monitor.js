@@ -57,6 +57,10 @@ export function getAlertHistory() {
   return http.get('/api/admin/alerts/history').then((res) => res.data)
 }
 
+export function acknowledgeAlert(id) {
+  return http.put(`/api/admin/alerts/events/${id}/acknowledge`)
+}
+
 export function websocketUrl() {
   const configured = typeof __API_BASE__ === 'undefined' ? '' : __API_BASE__
   if (configured) {

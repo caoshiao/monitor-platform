@@ -11,7 +11,7 @@ spring:
 #    password: ${MONITOR_DB_PASSWORD:Szh,111111}
 #    driver-class-name: org.postgresql.Driver
   datasource:
-    url: ${MONITOR_DB_URL:jdbc:highgo://192.168.222.128:5866/monitor_platform}
+    url: ${MONITOR_DB_URL:jdbc:highgo://192.168.140.128:5866/monitor_platform}
     username: ${MONITOR_DB_USERNAME:szh}
     password: ${MONITOR_DB_PASSWORD:Szh@111111}
     driver-class-name: com.highgo.jdbc.Driver
@@ -32,6 +32,9 @@ monitor:
     client-timeout: 30000
     # 告警评估与生命周期持久化间隔（毫秒）
     alert-interval: 5000
+    # 大表查询等离散事件在活动告警中至少保留的时间（分钟）
+    discrete-alert-hold-minutes: ${MONITOR_DISCRETE_ALERT_HOLD_MINUTES:60}
+    login-alert-merge-hours: ${MONITOR_LOGIN_ALERT_MERGE_HOURS:24}
   web:
     allowed-origins: ${MONITOR_ALLOWED_ORIGINS:http://localhost:3000}
 

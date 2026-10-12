@@ -45,6 +45,12 @@ public class ServerMessage {
     /** 当前在线的客户端 ID 列表 */
     private List<String> onlineClients;
 
+    /** 当前未确认的活动告警，用于前端通过 WebSocket 实时更新首页告警。 */
+    private List<AlertSnapshot> activeAlerts;
+
+    /** 当前仍超过阈值的指标告警，包含已确认告警，用于节点指标状态着色。 */
+    private List<AlertSnapshot> metricAlerts;
+
     // ==================== 单客户端最新指标（透传模式） ====================
 
     /** 最近一次收到的系统指标 */
@@ -81,6 +87,9 @@ public class ServerMessage {
         /** 主机名 */
         private String hostname;
 
+        /** 节点对外 IP 地址。 */
+        private String ipAddress;
+
         /**
          * 连接状态：
          * <ul>
@@ -100,5 +109,36 @@ public class ServerMessage {
         private MicroserviceMetrics microserviceMetrics;
 
         private HighgoMetrics highgoMetrics;
+    }
+
+    /**
+     * 活动告警摘要，承载首页实时展示所需字段。
+     */
+    @Data
+    public static class AlertSnapshot {
+
+        /** 告警事件主键。 */
+        private Long id;
+
+        /** 告警规则主键。 */
+        private Long ruleId;
+
+        /** 告警规则名称。 */
+        private String ruleName;
+
+        /** 客户端唯一标识。 */
+        private String clientId;
+
+        /** 节点展示名称。 */
+        private String nodeName;
+
+        /** 告警指标代码。 */
+        private String metric;
+
+        /** 告警等级。 */
+        private String level;
+
+        /** 告警开始时间，按服务端 UTC 时间传输。 */
+        private LocalDateTime startedAt;
     }
 }

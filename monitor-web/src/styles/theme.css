@@ -91,7 +91,16 @@ input {
   box-shadow: 0 0 0 4px #36d39920;
 }
 .admin-shell {
+  height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
   background: linear-gradient(180deg, rgba(44, 35, 82, 0.12), transparent 300px);
+}
+.admin-shell .page-wrap {
+  width: 100%;
+  padding-top: 30px;
+  padding-bottom: 48px;
 }
 .page-wrap {
   max-width: 1480px;
@@ -186,6 +195,82 @@ input {
   align-items: center;
   gap: 10px;
 }
+.client-panel__head--summary {
+  gap: 18px;
+}
+.client-panel__identity {
+  min-width: 0;
+  white-space: nowrap;
+}
+.module-head-summary {
+  justify-content: flex-end;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.module-head-summary span {
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+.module-head-summary b {
+  margin-left: 5px;
+  color: var(--blue);
+  font-size: 16px;
+}
+.module-head-summary .is-running b {
+  color: var(--green);
+}
+.module-head-summary .is-unhealthy b {
+  color: var(--red);
+}
+.monitor-detail-table {
+  width: calc(100% - 44px);
+  margin: 18px 22px 22px;
+}
+.monitor-detail-table,
+.monitor-detail-table .el-table__header-wrapper,
+.monitor-detail-table .el-table__body-wrapper,
+.monitor-detail-table .el-table__empty-block {
+  background: #0d1929 !important;
+}
+.monitor-detail-table th.el-table__cell {
+  color: #9db7d5;
+  background: #172a42 !important;
+  border-right-color: #294563 !important;
+  border-bottom-color: #365a7c !important;
+}
+.monitor-detail-table td.el-table__cell {
+  color: #d7e7f8;
+  background: #101e31 !important;
+  border-right-color: #223c58 !important;
+  border-bottom-color: #223c58 !important;
+}
+.monitor-detail-table.el-table--striped
+  .el-table__body
+  tr.el-table__row--striped
+  td.el-table__cell {
+  background: #14263d !important;
+}
+.monitor-detail-table .el-table__body tr:hover > td.el-table__cell {
+  background: #101e31 !important;
+}
+.monitor-detail-table.el-table--striped
+  .el-table__body
+  tr.el-table__row--striped:hover
+  > td.el-table__cell {
+  background: #14263d !important;
+}
+.monitor-detail-table.el-table--border,
+.monitor-detail-table.el-table--group,
+.monitor-detail-table::after,
+.monitor-detail-table::before {
+  border-color: #294563 !important;
+  background-color: #294563 !important;
+}
+.monitor-detail-table .el-table__empty-text {
+  color: #7894b5;
+}
 .client-panel__head code {
   color: var(--muted);
   font-size: 11px;
@@ -223,6 +308,12 @@ input {
 }
 .metrics-grid.compact {
   grid-template-columns: repeat(3, minmax(120px, 210px));
+}
+.metrics-grid.external-summary-grid {
+  grid-template-columns: repeat(4, minmax(120px, 210px));
+}
+.external-system-table .cell {
+  white-space: nowrap;
 }
 .metric-card {
   background: var(--surface-2);
@@ -349,6 +440,97 @@ input {
 }
 .admin-card {
   padding: 22px;
+}
+.admin-shell .admin-card {
+  overflow: hidden;
+}
+.admin-shell .admin-card .el-table {
+  width: 100%;
+}
+.admin-shell .admin-table-card {
+  padding: 0;
+  border-color: #2b405d;
+  background: #0f1b2c;
+  box-shadow: 0 10px 28px rgba(3, 9, 18, 0.14);
+}
+.admin-table-card .el-table,
+.admin-table-card .el-table__expanded-cell,
+.admin-table-card .el-table__header-wrapper,
+.admin-table-card .el-table__body-wrapper {
+  background: #0f1b2c !important;
+}
+.admin-table-card .el-table th.el-table__cell {
+  height: 44px;
+  padding: 0;
+  color: #9bb0ca;
+  font-size: 12px;
+  font-weight: 600;
+  background: #14253a !important;
+  border-bottom: 1px solid #304763;
+}
+.admin-table-card .el-table td.el-table__cell {
+  height: 48px;
+  padding: 0;
+  color: #dbe7f5;
+  font-size: 12px;
+  background: #0f1b2c !important;
+  border-bottom: 1px solid #20344d;
+}
+.admin-table-card .el-table .cell {
+  padding-right: 14px;
+  padding-left: 14px;
+  line-height: 20px;
+}
+.admin-table-card .el-table__body tr:last-child td.el-table__cell {
+  border-bottom: 0;
+}
+.admin-table-card .el-table__body tr:hover > td.el-table__cell,
+.admin-table-card .el-table__body tr.hover-row > td.el-table__cell {
+  background: #0f1b2c !important;
+}
+.admin-table-card .el-table::before,
+.admin-table-card .el-table__fixed-right::before,
+.admin-table-card .el-table__fixed::before {
+  display: none;
+}
+.admin-table-card .el-table__fixed,
+.admin-table-card .el-table__fixed-right {
+  box-shadow: -8px 0 18px rgba(3, 9, 18, 0.2);
+}
+.admin-table-card .el-tag {
+  border-color: #28577f;
+  background: #14324f;
+  color: #82c8ff;
+}
+.admin-table-card .el-tag--warning {
+  border-color: rgba(244, 183, 64, 0.42);
+  background: rgba(244, 183, 64, 0.1);
+  color: #f4c45f;
+}
+.admin-table-card .el-tag--danger {
+  border-color: rgba(251, 100, 119, 0.42);
+  background: rgba(251, 100, 119, 0.1);
+  color: #ff8191;
+}
+.admin-table-card .el-tag--success {
+  border-color: rgba(54, 211, 153, 0.4);
+  background: rgba(54, 211, 153, 0.1);
+  color: #55dca9;
+}
+.admin-table-card .el-tag--info {
+  border-color: #3a4c64;
+  background: #1a293b;
+  color: #93a5ba;
+}
+.admin-table-card .el-table__body-wrapper::-webkit-scrollbar {
+  height: 7px;
+}
+.admin-table-card .el-table__body-wrapper::-webkit-scrollbar-track {
+  background: #0b1625;
+}
+.admin-table-card .el-table__body-wrapper::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: #36516f;
 }
 .card-title {
   display: flex;
@@ -621,6 +803,15 @@ input {
   margin-left: auto;
   font-size: 10px;
 }
+.display-alert time {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.display-alert time + small {
+  margin-left: 0;
+}
 .display-alert-more,
 .display-alert-normal {
   color: var(--muted);
@@ -675,11 +866,53 @@ input {
     padding-left: 14px;
     padding-right: 14px;
   }
+  .client-panel__head--summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .module-head-summary {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    overflow-x: auto;
+  }
+  .monitor-detail-table {
+    width: calc(100% - 28px);
+    margin: 14px;
+  }
   .admin-grid {
     display: block;
   }
   .admin-card {
     margin-bottom: 14px;
     padding: 15px;
+  }
+  .admin-shell .admin-table-card {
+    padding: 0;
+  }
+  .admin-shell .page-wrap {
+    padding-top: 22px;
+    padding-bottom: 32px;
+  }
+  .admin-tabs {
+    overflow-x: auto;
+  }
+  .admin-tabs button {
+    flex: 0 0 auto;
+  }
+  .module-toolbar {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .toolbar-hint {
+    display: block;
+    margin: 5px 0 0;
+  }
+  .alert-overview {
+    gap: 14px;
+    overflow-x: auto;
+  }
+  .alert-overview > * {
+    flex: 0 0 auto;
   }
 }

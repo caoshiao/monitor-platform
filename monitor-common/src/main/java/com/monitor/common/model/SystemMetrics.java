@@ -36,8 +36,11 @@ public class SystemMetrics {
     /** 采集客户端唯一标识（通常为主机名或自定义名称） */
     private String clientId;
 
-    /** 主机 IP 地址，由采集端通过 {@code InetAddress.getLocalHost().getHostAddress()} 获取 */
+    /** 节点主机名。 */
     private String hostname;
+
+    /** 节点对外 IP 地址，由客户端配置或网卡地址采集得到。 */
+    private String ipAddress;
 
     /** 指标采集时间，格式 yyyy-MM-dd HH:mm:ss */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

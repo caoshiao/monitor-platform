@@ -157,7 +157,7 @@
               icon="el-icon-odometer"
             /><metric-card
               label="登录失败"
-              :value="highgo(client).loginFailureCount"
+              :value="availableMetric(highgo(client).loginFailureCount)"
               unit="次"
               tone="red"
               icon="el-icon-warning"
@@ -224,10 +224,13 @@ export default {
         { key: 'errorMessage', label: '错误信息' }
       ],
       highgoColumns: [
+        { key: 'databaseName', label: '数据库' },
         { key: 'userName', label: '用户' },
         { key: 'clientAddress', label: '客户端' },
+        { key: 'tableName', label: '表名' },
+        { key: 'tableSizeMB', label: '表大小（MB）' },
         { key: 'query', label: 'SQL' },
-        { key: 'occurrences', label: '执行次数' }
+        { key: 'occurrences', label: '窗口内次数' }
       ]
     }
   },
@@ -365,6 +368,9 @@ export default {
     },
     highgo(client) {
       return client.highgoMetrics || {}
+    },
+    availableMetric(value) {
+      return value === undefined || value === null || Number(value) < 0 ? '--' : value
     },
     hasDocker(client) {
       return (

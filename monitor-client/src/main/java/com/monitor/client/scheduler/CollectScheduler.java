@@ -100,7 +100,7 @@ public class CollectScheduler {
     public void collectSystemMetrics() {
         if (!config.isSystemEnabled() || !wsHandler.isConnected()) return;
         try {
-            SystemMetrics m = systemCollector.collect(clientId);
+            SystemMetrics m = systemCollector.collect(clientId, config);
             ClientMessage msg = new ClientMessage();
             msg.setType("SYSTEM");
             msg.setClientId(clientId);
@@ -134,7 +134,7 @@ public class CollectScheduler {
      * 定时采集微服务指标并上报（每 10 秒）。
      * <p>前置条件：microserviceEnabled=true 且 WebSocket 已连接。</p>
      */
-    @Scheduled(fixedDelay = 10000)
+    @Scheduled(fixedDelayString = "#{@clientConfig.microserviceCollectIntervalMs}")
     public void collectMicroserviceMetrics() {
         if (!config.isMicroserviceEnabled() || !wsHandler.isConnected()) return;
         try {
@@ -149,7 +149,7 @@ public class CollectScheduler {
         }
     }
 
-    @Scheduled(fixedDelay = 15000)
+    @Scheduled(fixedDelayString = "#{@clientConfig.highgoCollectIntervalMs}")
     public void collectHighgoMetrics() {
         if (!config.isHighgoEnabled() || !wsHandler.isConnected()) return;
         try {

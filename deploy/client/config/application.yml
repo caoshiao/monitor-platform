@@ -7,6 +7,8 @@ monitor:
   client:
     # 客户端唯一标识（留空则自动使用主机名）
     client-id:
+    # 节点对外 IP，页面显示该值；留空时自动获取。
+    node-ip-address:
     # 服务端 WebSocket 地址（指向 Docker 部署的 Server）
     server-url: ws://192.168.1.100:8080/ws/client
 
@@ -17,17 +19,58 @@ monitor:
     docker-enabled: false
     docker-host: unix:///var/run/docker.sock
 
-    # ---- 微服务健康监控（需要则开启） ----
+    # ---- 瀚高数据库监控（需要则开启） ----
+    highgo-enabled: false
+    highgo-collect-interval-ms: 5000
+    # 入口库仅用于发现实例数据库，实际监控范围为全部可连接的非模板数据库。
+    highgo-url: ${HIGHGO_URL:}
+    highgo-excluded-databases:
+      - highgo
+    highgo-driver-class: ${HIGHGO_DRIVER_CLASS:com.highgo.jdbc.Driver}
+    highgo-username: ${HIGHGO_USERNAME:}
+    highgo-password: ${HIGHGO_PASSWORD:}
+    # 普通数据库文本日志目录，不是二进制 hgaudit 目录；容器部署时需只读挂载到客户端容器。
+    highgo-server-log-directory: ${HIGHGO_SERVER_LOG_DIRECTORY:}
+    highgo-server-log-pattern: "${HIGHGO_SERVER_LOG_PATTERN:*.*}"
+    highgo-login-failure-patterns:
+      - ",28P01,"
+      - ",28000,"
+      - password authentication failed
+      - authentication failed
+      - chances to enter your password before your account get locked
+      - 口令认证失败
+      - 密码认证失败
+      - 密码错误
+    highgo-login-failure-window-hours: ${HIGHGO_LOGIN_FAILURE_WINDOW_HOURS:24}
+    highgo-log-max-read-bytes-per-cycle: ${HIGHGO_LOG_MAX_READ_BYTES_PER_CYCLE:1048576}
+    highgo-collector-state-path: ${HIGHGO_COLLECTOR_STATE_PATH:/opt/monitor-platform/data/highgo-collector.state}
+    # CSV 日志大表查询配置。
+    highgo-large-table-size-mb: ${HIGHGO_LARGE_TABLE_SIZE_MB:50}
+    highgo-large-query-max-rows: ${HIGHGO_LARGE_QUERY_MAX_ROWS:100}
+    highgo-large-query-window-minutes: ${HIGHGO_LARGE_QUERY_WINDOW_MINUTES:60}
+    highgo-statement-candidate-multiplier: ${HIGHGO_STATEMENT_CANDIDATE_MULTIPLIER:5}
+    highgo-statement-retry-interval-ms: ${HIGHGO_STATEMENT_RETRY_INTERVAL_MS:60000}
+
+    # ---- 外部系统双探针监控（需要则开启） ----
     microservice-enabled: false
-    # 是否校验 HTTPS 证书，默认 false（内网自签名证书场景跳过校验）
-    microservice-ssl-verify: false
+    microservice-collect-interval-ms: ${EXTERNAL_SYSTEM_COLLECT_INTERVAL_MS:10000}
+    microservice-connect-timeout-ms: ${EXTERNAL_SYSTEM_CONNECT_TIMEOUT_MS:3000}
+    microservice-read-timeout-ms: ${EXTERNAL_SYSTEM_READ_TIMEOUT_MS:5000}
+    microservice-probe-parallelism: ${EXTERNAL_SYSTEM_PROBE_PARALLELISM:4}
+    microservice-max-response-bytes: ${EXTERNAL_SYSTEM_MAX_RESPONSE_BYTES:65536}
+    # 生产环境建议开启证书校验；内网自签名证书暂未纳入信任链时可关闭。
+    microservice-ssl-verify: ${EXTERNAL_SYSTEM_SSL_VERIFY:false}
     microservices:
-      # - name: user-service
-      #   health-url: http://localhost:8081/actuator/health
-      #   port: 8081
-      # - name: order-service
-      #   health-url: http://localhost:8082/actuator/health
-      #   port: 8082
+      # - name: 统一身份认证系统
+      #   host: 10.1.0.20
+      #   port: 8080
+      #   health-url: http://10.1.0.20:8080/api/status
+      #   request-method: GET
+      #   expected-status-min: 200
+      #   expected-status-max: 299
+      #   expected-body-contains: success
+      #   request-headers:
+      #     Authorization: ${IDENTITY_HEALTH_TOKEN:}
 
 logging:
   level:

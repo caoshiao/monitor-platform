@@ -3,6 +3,8 @@ monitor:
   client:
     # 客户端唯一标识（留空则自动使用主机名）
     client-id: server-node-01
+    # 节点对外 IP，页面显示该值；留空时自动获取。
+    node-ip-address: 192.168.140.128
     # 服务端 WebSocket 地址
     server-url: ws://localhost:8080/ws/client
     # 启用系统监控（CPU/内存/磁盘/网络）
@@ -12,28 +14,58 @@ monitor:
     # Docker 守护进程地址（Linux 默认 unix socket，Windows 使用 tcp）
     # docker-host: unix:///var/run/docker.sock
     # docker-host: tcp://localhost:2375
-    # 启用微服务健康监控
+    # 启用外部系统双探针监控
     microservice-enabled: false
-    # 瀚高数据库监控（HighGo 兼容 PostgreSQL JDBC）
-#    highgo-enabled: true
-#    highgo-url: jdbc:postgresql://127.0.0.1:5866/postgres
-    # highgo-username: monitor
-    # highgo-password: ${HIGHGO_PASSWORD:}
-    # 登录失败 SQL 必须返回单个数字；不同版本可从审计/日志表配置
-    # highgo-login-failure-sql: SELECT count(*) FROM monitor_login_failures WHERE event_time >= now() - interval '5 minutes'
-    # 大表重复查询 SQL 返回 user_name, client_addr, query, occurrences 四列，occurrences >= 10
-    # highgo-large-query-sql: SELECT usename, client_addr, query, calls FROM pg_stat_statements WHERE calls >= 10 ORDER BY calls DESC LIMIT 100
-    # 推荐配置审计日志路径，配置后优先增量读取日志，不再依赖上面的审计 SQL
-    # highgo-audit-log-path: /var/log/highgo/pg_log/highgo-2026-08-21.log
-    # highgo-large-query-min-occurrences: 10
-    # 需要监控的微服务健康检查地址
+    microservice-collect-interval-ms: ${EXTERNAL_SYSTEM_COLLECT_INTERVAL_MS:10000}
+    microservice-connect-timeout-ms: ${EXTERNAL_SYSTEM_CONNECT_TIMEOUT_MS:3000}
+    microservice-read-timeout-ms: ${EXTERNAL_SYSTEM_READ_TIMEOUT_MS:5000}
+    microservice-probe-parallelism: ${EXTERNAL_SYSTEM_PROBE_PARALLELISM:4}
+    microservice-max-response-bytes: ${EXTERNAL_SYSTEM_MAX_RESPONSE_BYTES:65536}
+    microservice-ssl-verify: ${EXTERNAL_SYSTEM_SSL_VERIFY:false}
+    # 瀚高数据库安全版监控；运行期只使用业务监控账号，不读取二进制审计文件。
+    highgo-enabled: true
+    highgo-collect-interval-ms: 5000
+    # 入口库仅用于发现实例数据库，必须是监控账号 szh 能连接的数据库；实际监控范围为全部可连接的非模板数据库。
+    highgo-url: jdbc:highgo://192.168.140.128:5866/kcc_main
+    # 安全管理库 highgo 不参与业务数据库监控。
+    highgo-excluded-databases:
+      - highgo
+    highgo-driver-class: com.highgo.jdbc.Driver
+    highgo-username: szh
+    highgo-password: ${HIGHGO_PASSWORD:Szh@111111}
+    # 登录失败从普通数据库文本日志增量采集；必须配置实际日志目录，而不是二进制 hgaudit 目录。
+    highgo-server-log-directory: ${HIGHGO_SERVER_LOG_DIRECTORY:}
+    highgo-server-log-pattern: "${HIGHGO_SERVER_LOG_PATTERN:*.*}"
+    highgo-login-failure-patterns:
+      - ",28P01,"
+      - ",28000,"
+      - password authentication failed
+      - authentication failed
+      - chances to enter your password before your account get locked
+      - 口令认证失败
+      - 密码认证失败
+      - 密码错误
+    highgo-login-failure-window-hours: ${HIGHGO_LOGIN_FAILURE_WINDOW_HOURS:24}
+    highgo-log-max-read-bytes-per-cycle: ${HIGHGO_LOG_MAX_READ_BYTES_PER_CYCLE:1048576}
+    highgo-collector-state-path: ${HIGHGO_COLLECTOR_STATE_PATH:/opt/monitor-platform/data/highgo-collector.state}
+    # 大表全字段查询从瀚高 csvlog 增量读取。
+    highgo-large-table-size-mb: ${HIGHGO_LARGE_TABLE_SIZE_MB:50}
+    highgo-large-query-max-rows: ${HIGHGO_LARGE_QUERY_MAX_ROWS:100}
+    highgo-large-query-window-minutes: ${HIGHGO_LARGE_QUERY_WINDOW_MINUTES:60}
+    highgo-statement-candidate-multiplier: ${HIGHGO_STATEMENT_CANDIDATE_MULTIPLIER:5}
+    highgo-statement-retry-interval-ms: ${HIGHGO_STATEMENT_RETRY_INTERVAL_MS:60000}
+    # 外部系统双探针配置：host/port 用于 TCP 探测，health-url 用于接口探测。
     microservices:
-      # - name: user-service
-      #   health-url: http://localhost:8081/actuator/health
-      #   port: 8081
-      # - name: order-service
-      #   health-url: http://localhost:8082/actuator/health
-      #   port: 8082
+      # - name: 统一身份认证系统
+      #   host: 10.1.0.20
+      #   port: 8080
+      #   health-url: http://10.1.0.20:8080/api/status
+      #   request-method: GET
+      #   expected-status-min: 200
+      #   expected-status-max: 299
+      #   expected-body-contains: success
+      #   request-headers:
+      #     Authorization: ${IDENTITY_HEALTH_TOKEN:}
 
 spring:
   application:

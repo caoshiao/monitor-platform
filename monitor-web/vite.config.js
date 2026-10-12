@@ -9,7 +9,16 @@ export default defineConfig(({ mode }) => ({
     host: '0.0.0.0',
     proxy: {
       '/api': { target: 'http://localhost:8080', changeOrigin: true },
-      '/ws': { target: 'ws://localhost:8080', ws: true, changeOrigin: true }
+      '/ws': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true,
+        configure(proxy) {
+          proxy.on('error', (error, request) => {
+            console.warn(`[WebSocket代理] ${request.url} 连接异常: ${error.message}`)
+          })
+        }
+      }
     }
   },
   define: {

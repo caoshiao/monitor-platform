@@ -2,8 +2,9 @@ package com.monitor.server.websocket;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.monitor.common.model.ServerMessage;
+import com.monitor.server.model.dto.AlertEventView;
+import com.monitor.server.service.AlertRuleService;
 import com.monitor.server.service.MetricsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,8 +15,10 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.stream.Collectors;
 
 /**
  * 前端 WebSocket 处理器 —— 管理浏览器仪表盘的 WebSocket 连接，并负责推送聚合后的指标数据。
@@ -42,8 +45,11 @@ public class FrontendWsHandler extends TextWebSocketHandler {
     /** 指标数据存储服务 */
     private final MetricsService metricsService;
 
-    /** JSON 序列化器 */
-    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    /** 告警规则与事件服务 */
+    private final AlertRuleService alertRuleService;
+
+    /** Spring 统一配置的 JSON 序列化器，确保 HTTP 与 WebSocket 时间格式一致。 */
+    private final ObjectMapper objectMapper;
 
     /** 所有已连接的前端 WebSocket 会话集合（线程安全） */
     private final Set<WebSocketSession> frontendSessions = new CopyOnWriteArraySet<>();
@@ -84,6 +90,8 @@ public class FrontendWsHandler extends TextWebSocketHandler {
         if (frontendSessions.isEmpty()) return;
 
         ServerMessage msg = metricsService.buildAggregatedMessage();
+        msg.setActiveAlerts(toAlertSnapshots(alertRuleService.activeAlerts()));
+        msg.setMetricAlerts(toAlertSnapshots(alertRuleService.currentAlerts()));
         String json;
         try {
             json = objectMapper.writeValueAsString(msg);
@@ -104,5 +112,26 @@ public class FrontendWsHandler extends TextWebSocketHandler {
                 frontendSessions.remove(session);
             }
         }
+    }
+
+    /**
+     * 将服务端告警视图转换为 WebSocket 活动告警摘要。
+     *
+     * @param alerts 未确认的活动告警
+     * @return 活动告警摘要列表
+     */
+    static List<ServerMessage.AlertSnapshot> toAlertSnapshots(List<AlertEventView> alerts) {
+        return alerts.stream().map(alert -> {
+            ServerMessage.AlertSnapshot snapshot = new ServerMessage.AlertSnapshot();
+            snapshot.setId(alert.getId());
+            snapshot.setRuleId(alert.getRuleId());
+            snapshot.setRuleName(alert.getRuleName());
+            snapshot.setClientId(alert.getClientId());
+            snapshot.setNodeName(alert.getNodeName());
+            snapshot.setMetric(alert.getMetric());
+            snapshot.setLevel(alert.getLevel());
+            snapshot.setStartedAt(alert.getStartedAt());
+            return snapshot;
+        }).collect(Collectors.toList());
     }
 }

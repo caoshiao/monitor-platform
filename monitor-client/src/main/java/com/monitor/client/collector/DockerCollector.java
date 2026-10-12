@@ -43,6 +43,15 @@ import java.util.List;
 @Component
 public class DockerCollector {
 
+    /** Docker 正常运行状态。 */
+    private static final String RUNNING_STATE = "running";
+
+    /** Docker 正常停止状态。 */
+    private static final String EXITED_STATE = "exited";
+
+    /** Docker 健康检查失败标识。 */
+    private static final String UNHEALTHY_STATUS = "unhealthy";
+
     /**
      * 连接 Docker 守护进程并采集容器与镜像信息。
      *
@@ -85,10 +94,17 @@ public class DockerCollector {
                 info.setStatus(c.getState());
                 info.setUptime(c.getStatus());
 
-                // 分类统计
-                if ("running".equalsIgnoreCase(c.getState())) running++;
-                else if ("exited".equalsIgnoreCase(c.getState())) stopped++;
-                else unhealthy++;
+                // 运行中的容器也可能健康检查失败，因此状态统计和异常统计需要分别判断。
+                boolean isRunning = RUNNING_STATE.equalsIgnoreCase(c.getState());
+                boolean isStopped = EXITED_STATE.equalsIgnoreCase(c.getState());
+                if (isRunning) {
+                    running++;
+                } else if (isStopped) {
+                    stopped++;
+                }
+                if ((!isRunning && !isStopped) || containsUnhealthyStatus(c.getStatus())) {
+                    unhealthy++;
+                }
 
                 // 端口映射
                 if (c.getPorts() != null && c.getPorts().length > 0) {
@@ -126,5 +142,15 @@ public class DockerCollector {
             }
         }
         return metrics;
+    }
+
+    /**
+     * 判断 Docker 状态描述中是否包含健康检查失败标识。
+     *
+     * @param status Docker 返回的状态描述
+     * @return 包含健康检查失败标识时返回 true
+     */
+    private boolean containsUnhealthyStatus(String status) {
+        return status != null && status.toLowerCase(java.util.Locale.ROOT).contains(UNHEALTHY_STATUS);
     }
 }

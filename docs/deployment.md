@@ -23,10 +23,10 @@ cd monitor-platform
 
 ```bash
 # 编译（只编译不打包）
-mvn clean compile
+mvn clean compile -Dmaven.repo.local=D:\code\apache-maven-3.8.8\repository
 
 # 打包（生成可执行 JAR，跳过测试）
-mvn clean package -DskipTests
+mvn clean package -DskipTests -Dmaven.repo.local=D:\code\apache-maven-3.8.8\repository
 ```
 
 构建产物位置：
@@ -91,7 +91,70 @@ CREATE DATABASE monitor_platform OWNER szh;
 
 也可以通过环境变量覆盖连接信息：`MONITOR_DB_URL`、`MONITOR_DB_NAME`、`MONITOR_DB_USERNAME`、`MONITOR_DB_PASSWORD`。服务启动时会自动执行 `monitor-server/src/main/resources/schema.sql`，创建 `monitor_node`、`monitor_alert_rule` 和 `monitor_alert_event` 表。
 
+瀚高数据库监控按安全版 V4.5 实现。运行期只使用长期账号 `szh`，不读取二进制 `hgaudit` 文件、不调用 `hgaudit_imp`，也不保存 `sysdba`、`syssao`、`syssso` 的密码。
+
+登录失败从普通数据库文本日志增量采集。客户端为每个日志文件持久化读取偏移量，每轮最多读取 `highgo-log-max-read-bytes-per-cycle` 字节；大文件会分多轮读取，不会全量载入内存。数据库每天创建新日志文件时，新文件自动从头读取，旧文件未读完的内容仍会继续补读。客户端首次接管已有目录时从现有文件末尾建立基线，避免把数 GB 历史日志重新统计。
+
+普通日志必须包含认证失败信息。先由 DBA 确认日志目录和日志参数：
+
+```sql
+SHOW log_directory;
+SHOW log_filename;
+SHOW logging_collector;
+SHOW log_connections;
+```
+
+客户端配置实际目录；该目录不是 `$PGDATA/hgaudit`：
+
+```yaml
+highgo-url: jdbc:highgo://192.168.140.128:5866/kcc_main
+highgo-username: szh
+node-ip-address: 192.168.140.128
+highgo-server-log-directory: /实际数据目录/log
+highgo-server-log-pattern: "*.{log,csv}"
+highgo-login-failure-window-hours: 24
+highgo-large-query-window-minutes: 60
+highgo-log-max-read-bytes-per-cycle: 1048576
+highgo-collector-state-path: /opt/monitor-platform/data/highgo-collector.state
+```
+
+容器部署客户端时，需要把普通日志目录只读挂载进容器，并把状态目录持久化：
+
+```yaml
+volumes:
+  - /实际数据目录/log:/var/log/highgo:ro
+  - /opt/monitor-platform/data:/opt/monitor-platform/data
+environment:
+  HIGHGO_SERVER_LOG_DIRECTORY: /var/log/highgo
+```
+
+登录失败和大表全表查询统一从瀚高 `csvlog` 增量读取。登录失败按 SQLSTATE `28P01/28000` 及配置的认证失败文本识别；大表查询匹配 `SELECT * FROM ...`，再连接对应数据库查询表的实际大小。由于日志可能持续增长，客户端按文件偏移、轮转和单轮最大字节数处理，不会一次性加载整个文件。
+
+大表查询日志采集要求 `log_statement=all`，并建议在专用监控窗口验证后评估日志量、磁盘空间和敏感 SQL 暴露风险。`pg_stat_statements` 不再是大表查询告警的必需依赖。
+
+历史版本曾使用 `pg_stat_statements` 累计快照采集大表查询；当前版本已切换为 CSV 日志方案，因此不再要求预加载该扩展。若现场仍保留旧扩展，不影响当前日志采集。下面的内容仅用于兼容检查，不是当前大表告警的前置条件：
+
+```sql
+SHOW shared_preload_libraries;
+```
+
+若仍需要使用旧版统计方案，才需要包含 `pg_stat_statements`，并由 DBA 修改参数后重启实例。当前日志方案不需要执行下面的扩展安装脚本：
+
+```bash
+HIGHGO_EXECUTION_USER=sysdba \
+PSQL_BIN=/opt/highgo/hgdb-4.5/bin/psql \
+bash deploy/client/scripts/install-highgo-pg-stat-statements.sh szh kcc_main
+```
+
+日志方案中的客户端地址、用户、数据库和 SQL 来自 CSV 日志；页面不会伪造日志中不存在的字段。
+
+原来的审计表函数和安装脚本已从项目中移除。数据库中已部署的旧函数不会被程序调用；切换完成后可由 DBA 删除。`hg_audit` 是否继续开启由安全审计制度决定，不影响本监控方案。
+
+`highgo-url` 中的数据库仅作为实例发现入口，不代表监控范围。客户端按照 `highgo-collect-interval-ms` 持续定时采集，默认每 5 秒刷新一次：连接数、容量、锁等待和缓存命中率等实例指标每周期查询一次；登录失败和大表查询均增量读取本机 CSV 日志。
+
 告警事件会在首次超过预警阈值时创建，持续期间更新 `last_seen_at` 和 `duration_seconds`，指标恢复后写入 `resolved_at` 并将状态标记为 `RESOLVED`。即使没有浏览器打开，服务端也会每 5 秒后台评估一次。
+
+大表查询属于离散安全事件。客户端会在 `highgo-large-query-window-minutes` 配置窗口内持续上报最近事件，服务端通过 `monitor.server.discrete-alert-hold-minutes` 保证活动告警不会被下一轮空采集立即恢复。告警会持久化到 `monitor_alert_event` 表，其中 `started_at` 记录告警时间、`metric` 记录事件类型、`message` 记录数据库、表名、表大小及 SQL 等事件内容。
 
 ### 3.5 服务端配置参考
 

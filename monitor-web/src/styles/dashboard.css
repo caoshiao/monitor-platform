@@ -1,14 +1,19 @@
 .dashboard-lower {
   position: relative;
   display: block;
+  height: auto;
   min-height: 0;
   margin-top: 0;
   align-self: end;
+  height: 100%;
 }
 .dashboard-panel {
   width: 100%;
-  min-height: clamp(7rem, 18vh, 13rem);
-  height: 40vh;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
   padding: clamp(0.75rem, 1.4vw, 1.125rem);
   background: linear-gradient(145deg, #112844e8, #0d1929f2);
   border: 1px solid #2e6190;
@@ -20,6 +25,7 @@
   align-items: center;
   padding-bottom: 11px;
   border-bottom: 1px solid #2e619066;
+  flex: 0 0 auto;
 }
 .dashboard-panel__title span {
   font-size: 14px;
@@ -32,18 +38,27 @@
 }
 .node-status-list {
   display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 .node-status-row {
   display: grid;
-  grid-template-columns: minmax(0, 0.35fr) minmax(7rem, 1.1fr) minmax(8rem, 1.3fr) repeat(4, minmax(5.5rem, 0.8fr)) minmax(4rem, 0.55fr);
+  grid-template-columns:
+    minmax(0, 0.35fr) minmax(7rem, 1.1fr) minmax(8rem, 1.3fr) repeat(4, minmax(5.5rem, 0.8fr))
+    minmax(4rem, 0.55fr);
   align-items: center;
   gap: clamp(0.5rem, 1.2vw, 1rem);
-  min-height: clamp(2rem, 4vw, 2.5rem);
+  min-height: 0;
+  height: clamp(2rem, 4vw, 2.5rem);
   border-bottom: 1px solid #203b5666;
   font-size: 11px;
 }
 .node-status-row--header {
   min-height: auto;
+  height: clamp(2rem, 4vw, 2.5rem);
   padding: 0.45rem 0;
   color: var(--muted);
   font-size: 0.7rem;
@@ -106,4 +121,65 @@
   .node-status-metric {
     display: none;
   }
+}
+
+/* 节点区域使用 Element UI 表格，表头和数据行保持统一的紧凑密度。 */
+.node-card {
+  --node-table-horizontal-gap: 1vh;
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: var(--text);
+  background: linear-gradient(145deg, #112844e8, #0d1929f2);
+  border-color: #2e6190;
+  border-radius: 2px;
+}
+.node-card .el-card__header {
+  flex: 0 0 auto;
+  padding: 0.65rem 1rem;
+  border-bottom-color: #2e619066;
+}
+.node-card .el-card__body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 var(--node-table-horizontal-gap);
+  overflow: hidden;
+}
+.node-table {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.node-table,
+.node-table::before,
+.node-table .el-table__body-wrapper,
+.node-table .el-table__header-wrapper {
+  background: transparent;
+}
+.node-table th.el-table__cell,
+.node-table tr,
+.node-table td.el-table__cell {
+  color: var(--text);
+  background: transparent;
+  border-bottom-color: #203b5666;
+}
+.node-table th.el-table__cell {
+  color: var(--muted);
+  font-weight: 500;
+}
+.node-table .el-table__cell {
+  padding: 0.45rem 0;
+}
+.node-table .node-metric--warning {
+  color: var(--yellow);
+  font-weight: 700;
+}
+.node-table .node-metric--critical {
+  color: var(--red);
+  font-weight: 700;
+}
+.node-table.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell,
+.node-table .el-table__body tr:hover > td.el-table__cell {
+  background: #17325080;
 }

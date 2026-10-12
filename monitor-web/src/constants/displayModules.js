@@ -20,7 +20,7 @@ export const DISPLAY_MODULES = Object.freeze([
     description: '活动告警与历史告警记录',
     icon: 'el-icon-bell',
     value: 'ALERT EVENTS'
-  },
+  }
 ])
 
 export const DISPLAY_MODULE_META = Object.freeze({
@@ -28,6 +28,6 @@ export const DISPLAY_MODULE_META = Object.freeze({
   services: { title: '微服务', description: '微服务健康检查结果' },
   'external-api': { title: '外部接口状态', description: '外部接口健康检查结果' },
   highgo: { title: '瀚高数据库', description: '瀚高数据库连接和审计指标' },
-  alerts: { title: '告警中心', description: '查看当前正在发生的告警事件' },
+  alerts: { title: '告警中心', description: '查看全部告警记录并确认待处理事件' },
   nodes: { title: '在线节点', description: '查看节点总数及在线状态' }
 })

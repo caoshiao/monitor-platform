@@ -7,109 +7,147 @@
       </div>
     </div>
 
-    <div class="dashboard-summary">
-      <button
-        v-for="item in summary"
-        :key="item.label"
-        class="dashboard-summary__item"
-        :class="{ 'is-clickable': item.route }"
-        type="button"
-        @click="item.route && goToModule(item.route)"
-      >
-        <span>{{ item.label }}</span
-        ><strong :class="item.tone">{{ item.value }}</strong
-        ><small>{{ item.note }}</small>
-        <i v-if="item.route" class="el-icon-arrow-right dashboard-summary__arrow" />
-      </button>
-    </div>
-
-    <div class="module-overview-grid">
-      <div class="module-overview-column module-overview-column--left">
-        <button
-          v-for="module in leftModules"
-          :key="module.key"
-          class="module-overview-card"
-          type="button"
-          @click="goToModule(module.key)"
+    <el-row class="summary-row">
+      <el-col v-for="item in summary" :key="item.label" :span="6">
+        <el-card
+          class="home-summary-card"
+          :class="{ 'is-clickable': item.route }"
+          shadow="hover"
+          @click.native="item.route && goToModule(item.route)"
         >
-          <span class="module-overview-card__corner" /><span class="module-overview-card__icon"
-            ><i :class="module.icon" /></span
-          ><span class="module-overview-card__body"
-            ><b>{{ module.label }}</b
-            ><small>{{ module.description }}</small
-            ><em>{{ module.value }}</em></span
-          ><i class="el-icon-arrow-right module-overview-card__arrow" />
-        </button>
-      </div>
-      <div class="module-overview-column module-overview-column--middle">
-        <button class="latest-alert-panel" type="button" @click="goToModule('alerts')">
-          <div class="latest-alert-panel__header">
-            <span><i class="el-icon-bell" /> 最新告警</span><small>RECENT ALERTS</small>
+          <span class="home-summary-card__label">{{ item.label }}</span>
+          <strong :class="item.tone">{{ item.value }}</strong>
+          <small>{{ item.note }}</small>
+          <i v-if="item.route" class="el-icon-arrow-right home-summary-card__arrow" />
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row class="main-module-row">
+      <el-col :span="8">
+        <el-card
+          class="module-card module-card--link"
+          shadow="hover"
+          @click.native="goToModule('external-api')"
+        >
+          <div slot="header" class="module-card__header">
+            <span><i class="el-icon-link" /> 外部接口状态</span><i class="el-icon-arrow-right" />
           </div>
-          <div class="latest-alert-panel__summary">
-            <strong>{{ activeAlerts.length }}</strong><span>当前待处理告警</span>
-            <el-tag size="mini" :type="activeAlerts.length ? 'danger' : 'success'">{{ activeAlerts.length ? '需要关注' : '运行正常' }}</el-tag>
-          </div>
-          <div v-if="activeAlerts.length" class="latest-alert-list">
-            <div v-for="event in activeAlerts.slice(0, alertLimit)" :key="alertKey(event)" class="latest-alert-item" :class="{ 'is-critical': event.level === 'CRITICAL' }">
-              <i class="el-icon-warning-outline" /><span>{{ event.message }}</span><em>{{ event.level }}</em>
+          <div v-if="totalServices" class="external-status-summary">
+            <div>
+              <span>系统总数</span><strong>{{ totalServices }}</strong>
+            </div>
+            <div>
+              <span>可用</span><strong class="is-success">{{ healthyServices }}</strong>
+            </div>
+            <div>
+              <span>异常</span><strong class="is-danger">{{ unhealthyServices }}</strong>
             </div>
           </div>
-          <div v-else class="latest-alert-empty"><i class="el-icon-success" /> 当前运行正常</div>
-          <span class="latest-alert-panel__footer">查看全部告警 <i class="el-icon-arrow-right" /></span>
-        </button>
-      </div>
+          <div v-else class="module-card__empty">暂无外部系统探测数据</div>
+        </el-card>
+      </el-col>
 
-      <div v-if="rightModules.length" class="module-overview-column module-overview-column--right">
-        <button
-          v-for="module in rightModules"
-          :key="module.key"
-          class="module-overview-card"
-          type="button"
-          @click="goToModule(module.key)"
+      <el-col :span="8">
+        <el-card
+          class="module-card module-card--alerts"
+          shadow="hover"
+          @click.native="goToModule('alerts')"
         >
-          <span class="module-overview-card__corner" /><span class="module-overview-card__icon"
-            ><i :class="module.icon" /></span
-          ><span class="module-overview-card__body"
-            ><b>{{ module.label }}</b
-            ><small>{{ module.description }}</small
-            ><em>{{ module.value }}</em></span
-          ><i class="el-icon-arrow-right module-overview-card__arrow" />
-        </button>
-      </div>
-    </div>
-    
-    <div class="dashboard-lower">
-      <div class="dashboard-panel dashboard-panel--nodes">
-        <div class="dashboard-panel__title">
-          <span>节点运行状态</span><small>NODE STATUS / {{ clients.length }} NODES</small>
-        </div>
-        <div v-if="clients.length" class="node-status-list">
-          <div class="node-status-row node-status-row--header">
-            <span />
-            <span>节点名称</span><span>客户端 ID</span><span>CPU 使用率</span>
-            <span>内存使用率</span><span>磁盘使用率</span><span>系统负载</span><span>状态</span>
+          <div slot="header" class="module-card__header">
+            <span><i class="el-icon-bell" /> 最新告警</span>
+            <el-tag size="mini" :type="activeAlerts.length ? 'danger' : 'success'">
+              {{ activeAlerts.length ? `${activeAlerts.length} 条` : '运行正常' }}
+            </el-tag>
           </div>
-          <div v-for="client in clients" :key="client.clientId" class="node-status-row">
-            <span class="node-status-dot" />
-              <b>{{ client.hostname || client.clientId }}</b>
-              <code>{{ client.clientId }}</code>
-            <span class="node-status-metric">{{ formatMetric(clientCpu(client)) }}%</span>
-            <span class="node-status-metric">{{ formatMetric(clientMemory(client)) }}%</span>
-            <span class="node-status-metric">{{ formatMetric(clientDisk(client)) }}%</span>
-            <span class="node-status-metric">{{ formatMetric(clientLoad(client)) }}</span>
-            <el-tag size="mini" type="success">在线</el-tag>
+          <div v-if="activeAlerts.length" class="latest-alert-list">
+            <div
+              v-for="event in activeAlerts.slice(0, alertLimit)"
+              :key="alertKey(event)"
+              class="latest-alert-item"
+              :class="{ 'is-critical': event.level === 'CRITICAL' }"
+            >
+              <span>{{ event.nodeName || event.clientId }}</span>
+              <em>{{ alertType(event.metric) }}</em>
+              <time>{{ formatAlertTime(event.startedAt) }}</time>
+            </div>
           </div>
-        </div>
-        <div v-else class="dashboard-panel__empty">暂无在线节点</div>
+          <div v-else class="module-card__empty module-card__empty--success">
+            <i class="el-icon-success" /> 当前没有活动告警
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="8">
+        <el-card
+          class="module-card module-card--database"
+          shadow="hover"
+          @click.native="goToModule('highgo')"
+        >
+          <div slot="header" class="module-card__header">
+            <span><i class="el-icon-connection" /> 瀚高数据库</span
+            ><i class="el-icon-arrow-right" />
+          </div>
+          <el-row v-if="highgoSummary.available" class="database-metrics">
+            <el-col v-for="metric in highgoMetrics" :key="metric.label" :span="12">
+              <div class="database-metric">
+                <span>{{ metric.label }}</span
+                ><strong>{{ metric.value }}</strong>
+              </div>
+            </el-col>
+          </el-row>
+          <div v-else class="module-card__empty">暂无瀚高数据库实时数据</div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-card class="node-card" shadow="never">
+      <div slot="header" class="module-card__header">
+        <span>节点运行状态</span><small>NODE STATUS / {{ clients.length }} NODES</small>
       </div>
-    </div>
+      <el-table :data="nodeRows" height="100%" stripe class="node-table" empty-text="暂无在线节点">
+        <!-- <el-table-column label="状态" width="72" align="center">
+          <template slot-scope="scope"
+            ><span class="node-status-dot" :title="scope.row.status"
+          /></template>
+        </el-table-column> -->
+        <el-table-column prop="hostname" label="节点名称" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="ipAddress" label="IP 地址" min-width="130" show-overflow-tooltip />
+        <el-table-column prop="clientId" label="客户端 ID" min-width="150" show-overflow-tooltip />
+        <el-table-column label="CPU 使用率" min-width="110" align="right">
+          <template slot-scope="scope">
+            <span :class="metricAlertClass(scope.row.clientId, 'CPU')">{{
+              scope.row.cpuUsage
+            }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="内存使用率" min-width="110" align="right">
+          <template slot-scope="scope">
+            <span :class="metricAlertClass(scope.row.clientId, 'MEMORY')">{{
+              scope.row.memoryUsage
+            }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="磁盘使用率" min-width="110" align="right">
+          <template slot-scope="scope">
+            <span :class="metricAlertClass(scope.row.clientId, 'DISK')">{{
+              scope.row.diskUsage
+            }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="loadAverage" label="系统负载" min-width="100" align="right" />
+        <el-table-column label="连接状态" width="100" align="center">
+          <template><el-tag size="mini" type="success">在线</el-tag></template>
+        </el-table-column>
+      </el-table>
+    </el-card>
   </section>
 </template>
 
 <script>
 import { getActiveAlerts, getPublicNodeConfigs, websocketUrl } from '../services/monitor'
-import { DISPLAY_MODULES } from '../constants/displayModules'
+import { alertTypeLabel } from '../constants/alertTypes'
+import { formatServerTime } from '../utils/dateTime'
 
 const ALERT_LIMIT = 4
 const STATIC_REFRESH_INTERVAL = 30000
@@ -121,12 +159,13 @@ export default {
     return {
       snapshot: { clientSnapshots: [] },
       activeAlerts: [],
-      modules: DISPLAY_MODULES,
+      metricAlerts: [],
       nodeConfigs: [],
       alertLimit: ALERT_LIMIT,
       refreshTimer: null,
       reconnectTimer: null,
-      socket: null
+      socket: null,
+      destroyed: false
     }
   },
   computed: {
@@ -139,12 +178,6 @@ export default {
         this.nodeConfigs.filter((node) => node.enabled !== false).map((node) => node.clientId)
       )
       return snapshots.filter((client) => enabledIds.has(client.clientId))
-    },
-    leftModules() {
-      return this.modules.filter((module) => module.key === 'external-api')
-    },
-    rightModules() {
-      return this.modules.filter((module) => module.key === 'highgo')
     },
     totalRunning() {
       return this.clients.reduce(
@@ -164,8 +197,65 @@ export default {
         0
       )
     },
+    unhealthyServices() {
+      return this.clients.reduce(
+        (total, client) => total + Number((client.microserviceMetrics || {}).unhealthyServices || 0),
+        0
+      )
+    },
     totalNodes() {
       return this.nodeConfigs.filter((node) => node.enabled !== false).length || this.clients.length
+    },
+    highgoSummary() {
+      const metrics = this.clients
+        .map((client) => client.highgoMetrics)
+        .filter((metrics) => metrics && Number(metrics.connectionCount) >= 0)
+      const total = (key) => metrics.reduce((sum, item) => sum + Number(item[key] || 0), 0)
+      const availableTotal = (key) => {
+        const values = metrics.map((item) => Number(item[key])).filter((value) => value >= 0)
+        return values.length ? values.reduce((sum, value) => sum + value, 0) : null
+      }
+      const loads = metrics.filter((item) => Number(item.load) >= 0)
+      const averageLoad = loads.length
+        ? loads.reduce((sum, item) => sum + Number(item.load || 0), 0) / loads.length
+        : 0
+      return {
+        connectionCount: total('connectionCount'),
+        activeConnectionCount: total('activeConnectionCount'),
+        load: averageLoad.toFixed(1),
+        waitingSessionCount: total('waitingSessionCount'),
+        loginFailureCount: availableTotal('loginFailureCount'),
+        databaseSizeMB: availableTotal('databaseSizeMB'),
+        available: metrics.length > 0
+      }
+    },
+    highgoMetrics() {
+      return [
+        { label: '连接数', value: this.highgoSummary.connectionCount },
+        { label: '活跃连接', value: this.highgoSummary.activeConnectionCount },
+        { label: '连接负载', value: `${this.highgoSummary.load}%` },
+        {
+          label: '登录失败',
+          value: this.formatAvailableMetric(this.highgoSummary.loginFailureCount)
+        },
+        {
+          label: '实例总容量',
+          value: this.formatAvailableMetric(this.highgoSummary.databaseSizeMB, ' MB', 1)
+        },
+        { label: '锁等待', value: this.highgoSummary.waitingSessionCount }
+      ]
+    },
+    nodeRows() {
+      return this.clients.map((client) => ({
+        clientId: client.clientId,
+        hostname: client.hostname || client.clientId,
+        ipAddress: client.ipAddress || '-',
+        cpuUsage: `${this.formatMetric(this.clientCpu(client))}%`,
+        memoryUsage: `${this.formatMetric(this.clientMemory(client))}%`,
+        diskUsage: `${this.formatMetric(this.clientDisk(client))}%`,
+        loadAverage: this.formatMetric(this.clientLoad(client)),
+        status: '在线'
+      }))
     },
     summary() {
       return [
@@ -176,7 +266,13 @@ export default {
           tone: 'blue',
           route: 'nodes'
         },
-        { label: '活动告警', value: this.activeAlerts.length, note: 'ACTIVE ALERTS', tone: 'red' },
+        {
+          label: '活动告警',
+          value: this.activeAlerts.length,
+          note: '未确认告警，点击查看详情',
+          tone: 'red',
+          route: 'alerts'
+        },
         {
           label: '运行容器',
           value: this.totalRunning,
@@ -195,17 +291,19 @@ export default {
     }
   },
   mounted() {
-    this.loadStaticData()
+    this.destroyed = false
+    this.loadInitialData()
     this.connectWebSocket()
-    this.refreshTimer = setInterval(this.loadStaticData, STATIC_REFRESH_INTERVAL)
+    this.refreshTimer = setInterval(this.loadNodeConfigs, STATIC_REFRESH_INTERVAL)
   },
   beforeDestroy() {
+    this.destroyed = true
     clearInterval(this.refreshTimer)
     clearTimeout(this.reconnectTimer)
     if (this.socket) this.socket.close()
   },
   methods: {
-    loadStaticData() {
+    loadInitialData() {
       Promise.all([getActiveAlerts(), getPublicNodeConfigs()])
         .then(([alerts, nodeConfigs]) => {
           this.activeAlerts = alerts || []
@@ -215,13 +313,30 @@ export default {
           this.$log && this.$log.warn('展示端首页数据加载失败', error)
         })
     },
+    loadNodeConfigs() {
+      getPublicNodeConfigs()
+        .then((nodeConfigs) => {
+          this.nodeConfigs = nodeConfigs || []
+        })
+        .catch((error) => {
+          this.$log && this.$log.warn('节点配置加载失败', error)
+        })
+    },
     connectWebSocket() {
+      if (this.destroyed) return
       this.socket = new WebSocket(websocketUrl())
       this.socket.onmessage = (event) => {
         try {
-          this.snapshot = JSON.parse(event.data) || { clientSnapshots: [] }
+          const message = JSON.parse(event.data) || { clientSnapshots: [] }
+          this.snapshot = message
+          if (Array.isArray(message.activeAlerts)) {
+            this.activeAlerts = message.activeAlerts
+          }
+          if (Array.isArray(message.metricAlerts)) {
+            this.metricAlerts = message.metricAlerts
+          }
         } catch (error) {
-          this.$log && this.$log.warn('节点实时数据解析失败', error)
+          this.$log && this.$log.warn('实时监控数据解析失败', error)
         }
       }
       this.socket.onerror = (error) => {
@@ -229,7 +344,9 @@ export default {
       }
       this.socket.onclose = () => {
         this.socket = null
-        this.reconnectTimer = setTimeout(() => this.connectWebSocket(), RECONNECT_INTERVAL)
+        if (!this.destroyed) {
+          this.reconnectTimer = setTimeout(() => this.connectWebSocket(), RECONNECT_INTERVAL)
+        }
       }
     },
     goToModule(moduleKey) {
@@ -250,8 +367,26 @@ export default {
     formatMetric(value) {
       return Number(value || 0).toFixed(1)
     },
+    formatAvailableMetric(value, unit = '', precision = 0) {
+      return value === null || value === undefined || Number(value) < 0
+        ? '--'
+        : `${Number(value).toFixed(precision)}${unit}`
+    },
     alertKey(event) {
-      return `${event.ruleId}-${event.clientId}`
+      return event.id || `${event.ruleId}-${event.clientId}`
+    },
+    formatAlertTime(value) {
+      return formatServerTime(value)
+    },
+    alertType(metric) {
+      return alertTypeLabel(metric)
+    },
+    metricAlertClass(clientId, metric) {
+      const alert = this.metricAlerts.find(
+        (item) => item.clientId === clientId && item.metric === metric
+      )
+      if (!alert) return ''
+      return alert.level === 'CRITICAL' ? 'node-metric--critical' : 'node-metric--warning'
     }
   }
 }
