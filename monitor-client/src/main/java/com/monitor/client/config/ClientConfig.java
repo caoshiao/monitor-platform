@@ -19,7 +19,7 @@ import java.util.Map;
  *   <li>系统监控 —— CPU/内存/磁盘/网络/JVM（默认开启）</li>
  *   <li>Docker 监控 —— 容器状态与镜像统计（默认关闭，需配置 Docker Host）</li>
  *   <li>外部系统监控 —— TCP 端口与 HTTP 接口双探针（默认关闭，需配置端点列表）</li>
- *   <li>瀚高监控 —— 实例指标、普通日志登录失败和语句统计（默认关闭）</li>
+ *   <li>数据库监控 —— PostgreSQL 或瀚高实例指标及 CSV 日志事件</li>
  * </ul>
  * 所有配置均支持命令行参数覆盖，如 {@code --monitor.client.docker-enabled=true}。
  * </p>
@@ -32,6 +32,42 @@ import java.util.Map;
 @Component
 @ConfigurationProperties(prefix = "monitor.client")
 public class ClientConfig {
+
+    /** 统一数据库配置；未提供时兼容旧版 highgo 配置。 */
+    private DatabaseMonitorConfig database;
+
+    /**
+     * 解析数据库配置，保持已有瀚高部署无需修改即可继续采集。
+     *
+     * @return 显式数据库配置，或由旧版瀚高配置转换的配置
+     */
+    public DatabaseMonitorConfig resolveDatabaseConfig() {
+        if (database != null) {
+            return database;
+        }
+        DatabaseMonitorConfig legacy = new DatabaseMonitorConfig();
+        legacy.setType("hgdb");
+        legacy.setCollector("postgresql");
+        legacy.setDisplayName("瀚高数据库");
+        legacy.setUrlPrefix("jdbc:highgo:");
+        legacy.setEnabled(highgoEnabled);
+        legacy.setUrl(highgoUrl);
+        legacy.setDriverClass(highgoDriverClass);
+        legacy.setUsername(highgoUsername);
+        legacy.setPassword(highgoPassword);
+        legacy.setCollectIntervalMs(highgoCollectIntervalMs);
+        legacy.setExcludedDatabases(highgoExcludedDatabases);
+        legacy.setServerLogDirectory(highgoServerLogDirectory);
+        legacy.setServerLogPattern(highgoServerLogPattern);
+        legacy.setLoginFailurePatterns(highgoLoginFailurePatterns);
+        legacy.setLoginFailureWindowHours(highgoLoginFailureWindowHours);
+        legacy.setLogMaxReadBytesPerCycle(highgoLogMaxReadBytesPerCycle);
+        legacy.setCollectorStatePath(highgoCollectorStatePath);
+        legacy.setLargeTableSizeMb(highgoLargeTableSizeMb);
+        legacy.setLargeQueryMaxRows(highgoLargeQueryMaxRows);
+        legacy.setLargeQueryWindowMinutes(highgoLargeQueryWindowMinutes);
+        return legacy;
+    }
 
     // ==================== 基础配置 ====================
 
@@ -57,6 +93,15 @@ public class ClientConfig {
 
     /** 是否启用外部系统双探针检查，默认 false。 */
     private boolean microserviceEnabled = false;
+
+    /** 是否启用中间件可用性监控。 */
+    private boolean middlewareEnabled = false;
+
+    /** 中间件采集间隔，单位毫秒。 */
+    private long middlewareCollectIntervalMs = 10000L;
+
+    /** 中间件实例列表，与外部系统端点分开配置和统计。 */
+    private List<ServiceEndpoint> middlewares = new ArrayList<>();
 
     /** 外部系统双探针采集间隔，单位毫秒。 */
     private long microserviceCollectIntervalMs = 10000L;
@@ -129,6 +174,19 @@ public class ClientConfig {
      */
     @Data
     public static class ServiceEndpoint {
+
+        /** 中间件类型，作为展示信息使用，例如 nginx、rabbitmq、onlyoffice、minio、redis。 */
+        private String middlewareType;
+
+        /** 探测方式：HTTP 双探针、TCP 端口连通性、REDIS 认证后 PING。 */
+        private String probeMode = "HTTP";
+
+        /** 协议认证账号，Redis ACL 场景可选。 */
+        private String username;
+
+        /** 协议认证密码，通过环境变量提供，不进入指标消息。 */
+        @lombok.ToString.Exclude
+        private String password;
 
         /** 外部系统名称，自定义标识，如“统一身份认证系统”。 */
         private String name;

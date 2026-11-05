@@ -85,7 +85,7 @@
           @click.native="goToModule('highgo')"
         >
           <div slot="header" class="module-card__header">
-            <span><i class="el-icon-connection" /> 瀚高数据库</span
+            <span><i class="el-icon-connection" /> 数据库监控</span
             ><i class="el-icon-arrow-right" />
           </div>
           <el-row v-if="highgoSummary.available" class="database-metrics">
@@ -96,7 +96,7 @@
               </div>
             </el-col>
           </el-row>
-          <div v-else class="module-card__empty">暂无瀚高数据库实时数据</div>
+          <div v-else class="module-card__empty">暂无数据库实时数据</div>
         </el-card>
       </el-col>
     </el-row>
@@ -199,8 +199,21 @@ export default {
     },
     unhealthyServices() {
       return this.clients.reduce(
-        (total, client) => total + Number((client.microserviceMetrics || {}).unhealthyServices || 0),
+        (total, client) =>
+          total + Number((client.microserviceMetrics || {}).unhealthyServices || 0),
         0
+      )
+    },
+    middlewareSummary() {
+      return this.clients.reduce(
+        (summary, client) => {
+          const metrics = client.middlewareMetrics || {}
+          summary.total += Number(metrics.totalServices || 0)
+          summary.available += Number(metrics.healthyServices || 0)
+          summary.abnormal += Number(metrics.unhealthyServices || 0)
+          return summary
+        },
+        { total: 0, available: 0, abnormal: 0 }
       )
     },
     totalNodes() {
@@ -267,11 +280,11 @@ export default {
           route: 'nodes'
         },
         {
-          label: '活动告警',
-          value: this.activeAlerts.length,
-          note: '未确认告警，点击查看详情',
-          tone: 'red',
-          route: 'alerts'
+          label: '中间件监控',
+          value: `${this.middlewareSummary.available} / ${this.middlewareSummary.total}`,
+          note: `可用 / 总实例，异常 ${this.middlewareSummary.abnormal} 个，点击查看详情`,
+          tone: this.middlewareSummary.abnormal ? 'red' : 'green',
+          route: 'middleware'
         },
         {
           label: '运行容器',

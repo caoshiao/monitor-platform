@@ -1,7 +1,8 @@
 import axios from 'axios'
+import { getApiBase, getWebsocketUrl } from '../config/runtime'
 
 const http = axios.create({
-  baseURL: typeof __API_BASE__ === 'undefined' ? '' : __API_BASE__,
+  baseURL: getApiBase(),
   timeout: 8000
 })
 
@@ -62,15 +63,7 @@ export function acknowledgeAlert(id) {
 }
 
 export function websocketUrl() {
-  const configured = typeof __API_BASE__ === 'undefined' ? '' : __API_BASE__
-  if (configured) {
-    const url = new URL(configured, window.location.origin)
-    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-    url.pathname = `${url.pathname.replace(/\/$/, '')}/ws/frontend`
-    return url.toString()
-  }
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}/ws/frontend`
+  return getWebsocketUrl()
 }
 
 export default http

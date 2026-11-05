@@ -53,6 +53,9 @@ public class ClientMessage {
     /** 微服务指标数据（当 type="MICROSERVICE" 时有效） */
     private MicroserviceMetrics microserviceMetrics;
 
+    /** 中间件可用性指标（当 type="MIDDLEWARE" 时有效）。 */
+    private MicroserviceMetrics middlewareMetrics;
+
     /** 瀚高数据库安全版指标（当 type="HIGHGO" 时有效）。 */
     private HighgoMetrics highgoMetrics;
 }

@@ -15,6 +15,12 @@
     <description>监控采集客户端 - 部署在各服务器上采集指标数据</description>
 
     <dependencies>
+        <!-- 原生 PostgreSQL 使用官方驱动，与瀚高驱动显式隔离。 -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.14</version>
+        </dependency>
         <dependency>
             <groupId>com.highgo</groupId>
             <artifactId>HgdbJdbc</artifactId>

@@ -29,7 +29,7 @@ User=root
 Group=root
 
 # 工作目录
-WorkingDirectory=/opt/monitor-platform/monitor-client
+WorkingDirectory=/usr/local/szh/monitor-platform/client
 
 # 启动命令
 ExecStart=/usr/bin/java \
@@ -38,8 +38,8 @@ ExecStart=/usr/bin/java \
     -Dfile.encoding=UTF-8 \
     -XX:+UseG1GC \
     -XX:MaxRAMPercentage=50.0 \
-    -jar /opt/monitor-platform/monitor-client/monitor-client-1.0.0-SNAPSHOT.jar \
-    --spring.config.location=/opt/monitor-platform/monitor-client/config/
+    -jar /usr/local/szh/monitor-platform/client/monitor-client-1.0.0-SNAPSHOT.jar \
+    --spring.config.location=/usr/local/szh/monitor-platform/client/config/
 
 # 优雅停止（先 SIGTERM，90 秒后 SIGKILL）
 KillMode=mixed

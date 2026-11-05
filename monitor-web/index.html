@@ -8,6 +8,8 @@
   </head>
   <body>
     <div id="app"></div>
+    <!-- 先读取外置配置，再初始化应用；该文件不参与业务代码打包。 -->
+    <script src="/config.js"></script>
     <script type="module" src="/src/display-main.js"></script>
   </body>
 </html>

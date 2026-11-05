@@ -14,6 +14,13 @@ import java.util.List;
 public interface MetricsService {
 
     /**
+     * 更新客户端的中间件可用性指标。
+     * @param clientId 客户端标识
+     * @param metrics 中间件指标
+     */
+    void updateMiddlewareMetrics(String clientId, MicroserviceMetrics metrics);
+
+    /**
      * 更新指定客户端的系统指标。
      *
      * @param clientId 客户端标识

@@ -3,6 +3,11 @@
 # 部署时复制到目标服务器，根据实际情况修改
 # ============================================================
 
+spring:
+  main:
+    # 采集端只建立到服务端的 WebSocket 连接，不提供 HTTP 服务，避免占用服务端端口。
+    web-application-type: none
+
 monitor:
   client:
     # 客户端唯一标识（留空则自动使用主机名）
@@ -19,40 +24,104 @@ monitor:
     docker-enabled: false
     docker-host: unix:///var/run/docker.sock
 
-    # ---- 瀚高数据库监控（需要则开启） ----
-    highgo-enabled: false
-    highgo-collect-interval-ms: 5000
-    # 入口库仅用于发现实例数据库，实际监控范围为全部可连接的非模板数据库。
-    highgo-url: ${HIGHGO_URL:}
-    highgo-excluded-databases:
-      - highgo
-    highgo-driver-class: ${HIGHGO_DRIVER_CLASS:com.highgo.jdbc.Driver}
-    highgo-username: ${HIGHGO_USERNAME:}
-    highgo-password: ${HIGHGO_PASSWORD:}
-    # 普通数据库文本日志目录，不是二进制 hgaudit 目录；容器部署时需只读挂载到客户端容器。
-    highgo-server-log-directory: ${HIGHGO_SERVER_LOG_DIRECTORY:}
-    highgo-server-log-pattern: "${HIGHGO_SERVER_LOG_PATTERN:*.*}"
-    highgo-login-failure-patterns:
-      - ",28P01,"
-      - ",28000,"
-      - password authentication failed
-      - authentication failed
-      - chances to enter your password before your account get locked
-      - 口令认证失败
-      - 密码认证失败
-      - 密码错误
-    highgo-login-failure-window-hours: ${HIGHGO_LOGIN_FAILURE_WINDOW_HOURS:24}
-    highgo-log-max-read-bytes-per-cycle: ${HIGHGO_LOG_MAX_READ_BYTES_PER_CYCLE:1048576}
-    highgo-collector-state-path: ${HIGHGO_COLLECTOR_STATE_PATH:/opt/monitor-platform/data/highgo-collector.state}
-    # CSV 日志大表查询配置。
-    highgo-large-table-size-mb: ${HIGHGO_LARGE_TABLE_SIZE_MB:50}
-    highgo-large-query-max-rows: ${HIGHGO_LARGE_QUERY_MAX_ROWS:100}
-    highgo-large-query-window-minutes: ${HIGHGO_LARGE_QUERY_WINDOW_MINUTES:60}
-    highgo-statement-candidate-multiplier: ${HIGHGO_STATEMENT_CANDIDATE_MULTIPLIER:5}
-    highgo-statement-retry-interval-ms: ${HIGHGO_STATEMENT_RETRY_INTERVAL_MS:60000}
+    # ---- 数据库监控（需要则开启） ----
+    # type 是产品标识；collector 决定使用哪一种 SQL 方言采集器。
+    # 当前内置 postgresql 采集器兼容 hgdb 和 postgres；新增数据库时新增采集器后填写新标识。
+    database:
+      enabled: false
+      type: hgdb
+      collector: postgresql
+      display-name: 瀚高数据库
+      url-prefix: "jdbc:highgo:"
+      driver-class: com.highgo.jdbc.Driver
+      # 入口库仅用于发现实例数据库，实际监控范围为全部可连接的非模板数据库。
+      url: ${DATABASE_URL:}
+      username: ${DATABASE_USERNAME:}
+      password: ${DATABASE_PASSWORD:}
+      collect-interval-ms: 5000
+      connect-timeout-seconds: 5
+      query-timeout-seconds: 10
+      long-transaction-seconds: 300
+      # PostgreSQL 推荐设为 true；瀚高安全版通常设为 false。
+      client-backend-only: false
+      # 启用后从 server-log-directory 的 CSV 日志识别登录失败和大表查询事件。
+      query-log-enabled: ${DATABASE_QUERY_LOG_ENABLED:false}
+      excluded-databases:
+        - highgo
+      # 普通数据库文本日志目录，不是二进制 hgaudit 目录；容器部署时需只读挂载到客户端容器。
+      server-log-directory: ${DATABASE_SERVER_LOG_DIRECTORY:}
+      server-log-pattern: "${DATABASE_SERVER_LOG_PATTERN:*.*}"
+      login-failure-patterns:
+        - ",28P01,"
+        - ",28000,"
+        - password authentication failed
+        - authentication failed
+        - chances to enter your password before your account get locked
+        - 口令认证失败
+        - 密码认证失败
+        - 密码错误
+      login-failure-window-hours: ${DATABASE_LOGIN_FAILURE_WINDOW_HOURS:24}
+      log-max-read-bytes-per-cycle: ${DATABASE_LOG_MAX_READ_BYTES_PER_CYCLE:1048576}
+      log-max-record-bytes: ${DATABASE_LOG_MAX_RECORD_BYTES:1048576}
+      collector-state-path: ${DATABASE_COLLECTOR_STATE_PATH:/opt/monitor-platform/data/database-collector.state}
+      large-table-size-mb: ${DATABASE_LARGE_TABLE_SIZE_MB:50}
+      large-query-max-rows: ${DATABASE_LARGE_QUERY_MAX_ROWS:100}
+      large-query-window-minutes: ${DATABASE_LARGE_QUERY_WINDOW_MINUTES:60}
 
     # ---- 外部系统双探针监控（需要则开启） ----
     microservice-enabled: false
+    # 中间件可用性监控，与外部接口列表分别统计；填写实际地址后开启。
+    middleware-enabled: ${MIDDLEWARE_ENABLED:false}
+    middleware-collect-interval-ms: ${MIDDLEWARE_COLLECT_INTERVAL_MS:10000}
+    # 探针超时、并发和响应读取上限复用下方 microservice-* 配置。
+    # 默认地址指向客户端本机；按实际部署修改环境变量，未部署的实例应从列表移除。
+    # 客户端运行在容器内时，127.0.0.1 指向客户端容器，需要改为可访问的中间件地址。
+    middlewares:
+      - name: Nginx 网关
+        middleware-type: nginx
+        probe-mode: HTTP
+        host: ${MIDDLEWARE_NGINX_HOST:127.0.0.1}
+        port: ${MIDDLEWARE_NGINX_PORT:80}
+        # 需要在 Nginx 中配置 location = /basic_status { stub_status; }，并允许客户端访问。
+        health-url: ${MIDDLEWARE_NGINX_HEALTH_URL:http://127.0.0.1:80/basic_status}
+        expected-status-max: 299
+        expected-body-contains: 'Active connections:'
+      - name: RabbitMQ 消息队列
+        middleware-type: rabbitmq
+        probe-mode: HTTP
+        host: ${MIDDLEWARE_RABBITMQ_HOST:127.0.0.1}
+        port: ${MIDDLEWARE_RABBITMQ_PORT:15672}
+        # 需要启用管理插件；检查资源告警，存在告警时健康接口返回失败状态。
+        health-url: ${MIDDLEWARE_RABBITMQ_HEALTH_URL:http://127.0.0.1:15672/api/health/checks/alarms}
+        expected-status-max: 299
+        request-headers:
+          # 填写完整的 Basic 认证请求头，通过环境变量提供，不在配置中保存账号密码。
+          Authorization: ${MIDDLEWARE_RABBITMQ_AUTHORIZATION:}
+      - name: OnlyOffice 文档服务
+        middleware-type: onlyoffice
+        probe-mode: HTTP
+        host: ${MIDDLEWARE_ONLYOFFICE_HOST:127.0.0.1}
+        port: ${MIDDLEWARE_ONLYOFFICE_PORT:80}
+        # 适用于 OnlyOffice 文档服务；端口应填写实际映射的 HTTP 端口。
+        health-url: ${MIDDLEWARE_ONLYOFFICE_HEALTH_URL:http://127.0.0.1:80/healthcheck}
+        expected-status-max: 299
+        expected-body-contains: 'true'
+      - name: MinIO 对象存储
+        middleware-type: minio
+        probe-mode: HTTP
+        host: ${MIDDLEWARE_MINIO_HOST:127.0.0.1}
+        port: ${MIDDLEWARE_MINIO_PORT:9000}
+        # 使用对象存储 API 端口，不能填写控制台端口。
+        health-url: ${MIDDLEWARE_MINIO_HEALTH_URL:http://127.0.0.1:9000/minio/health/live}
+        expected-status-max: 299
+      - name: Redis 缓存
+        middleware-type: redis
+        # Redis 没有 HTTP 健康接口，使用原生协议认证并执行 PING。
+        probe-mode: REDIS
+        host: ${MIDDLEWARE_REDIS_HOST:127.0.0.1}
+        port: ${MIDDLEWARE_REDIS_PORT:6379}
+        username: ${MIDDLEWARE_REDIS_USERNAME:}
+        password: ${MIDDLEWARE_REDIS_PASSWORD:}
     microservice-collect-interval-ms: ${EXTERNAL_SYSTEM_COLLECT_INTERVAL_MS:10000}
     microservice-connect-timeout-ms: ${EXTERNAL_SYSTEM_CONNECT_TIMEOUT_MS:3000}
     microservice-read-timeout-ms: ${EXTERNAL_SYSTEM_READ_TIMEOUT_MS:5000}

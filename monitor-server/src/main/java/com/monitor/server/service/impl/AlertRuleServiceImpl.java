@@ -469,19 +469,22 @@ public class AlertRuleServiceImpl implements AlertRuleService {
 
     private String buildAlertMessage(ServerMessage.ClientSnapshot snapshot, String metric,
             String nodeName, BigDecimal value) {
+        HighgoMetrics metrics = snapshot.getHighgoMetrics();
+        String product = metrics == null || metrics.getDatabaseProduct() == null
+                || metrics.getDatabaseProduct().trim().isEmpty()
+                ? "数据库" : metrics.getDatabaseProduct();
         if (LOGIN_FAILURE_METRIC.equals(metric)) {
-            return nodeName + " 检测到瀚高数据库登录失败 "
+            return nodeName + " 检测到" + product + "登录失败 "
                     + value.stripTrailingZeros().toPlainString() + " 次";
         }
         if (!LARGE_TABLE_QUERY_METRIC.equals(metric)) {
             return formatSystemMetricAlertMessage(nodeName, metric, value);
         }
-        HighgoMetrics metrics = snapshot.getHighgoMetrics();
         if (metrics == null || metrics.getRepeatedLargeTableQueries().isEmpty()) {
-            return "检测到瀚高数据库全表查询：事件详情暂不可用";
+            return "检测到" + product + "全表查询：事件详情暂不可用";
         }
         HighgoMetrics.LargeTableQuery query = metrics.getRepeatedLargeTableQueries().get(0);
-        return formatLargeTableQueryMessage(query);
+        return formatLargeTableQueryMessage(query, product);
     }
 
     /**
@@ -499,7 +502,13 @@ public class AlertRuleServiceImpl implements AlertRuleService {
     }
 
     static String formatLargeTableQueryMessage(HighgoMetrics.LargeTableQuery query) {
-        String prefix = "检测到瀚高数据库全表查询：数据库=" + query.getDatabaseName()
+        // 保留旧调用方默认使用瀚高产品名的行为；新采集链路会传入配置中的展示名称。
+        return formatLargeTableQueryMessage(query, "瀚高数据库");
+    }
+
+    /** 按实际数据库产品生成告警，并在截断 SQL 时保留账号和执行时间。 */
+    static String formatLargeTableQueryMessage(HighgoMetrics.LargeTableQuery query, String product) {
+        String prefix = "检测到" + product + "全表查询：数据库=" + query.getDatabaseName()
                 + "，账号=" + query.getUserName()
                 + "，表=" + query.getTableName()
                 + "，表大小=" + query.getTableSizeMB() + "MB"

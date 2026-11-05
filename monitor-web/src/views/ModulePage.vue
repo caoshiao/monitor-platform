@@ -1,8 +1,10 @@
 <template>
-  <section>
+  <section :class="{ 'database-detail-page': module === 'highgo' }">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">MODULE / {{ title }}</p>
+        <p class="eyebrow">
+          {{ module === 'highgo' ? '监控总览 / 数据库监控' : `MODULE / ${title}` }}
+        </p>
         <h1>{{ title }}</h1>
         <p class="subtext">{{ description }}</p>
       </div>
@@ -106,8 +108,14 @@
       <data-table :columns="nodeColumns" :rows="nodeRows" />
     </div>
 
-    <div v-for="client in clients" v-else :key="client.clientId" class="client-panel">
+    <div
+      v-for="client in clients"
+      v-else
+      :key="client.clientId"
+      :class="{ 'client-panel': module !== 'highgo' }"
+    >
       <div
+        v-if="module !== 'highgo'"
         class="client-panel__head"
         :class="{ 'client-panel__head--summary': ['docker', 'services'].includes(module) }"
       >
@@ -223,16 +231,16 @@
           show-overflow-tooltip
         />
       </el-table>
-      <template v-else-if="module === 'external-api'">
+      <template v-else-if="['external-api', 'middleware'].includes(module)">
         <div class="metrics-grid compact external-summary-grid">
           <metric-card
-            label="系统总数"
+            :label="module === 'middleware' ? '实例总数' : '系统总数'"
             :value="services(client).totalServices"
             unit="个"
             icon="el-icon-s-grid"
           />
           <metric-card
-            label="完全可用"
+            :label="module === 'middleware' ? '探测正常' : '完全可用'"
             :value="services(client).healthyServices"
             unit="个"
             tone="green"
@@ -257,11 +265,32 @@
           class="monitor-detail-table external-system-table"
           stripe
           border
-          empty-text="暂无外部系统探测数据"
+          :empty-text="
+            module === 'middleware'
+              ? '暂无中间件数据，请在客户端配置中启用中间件监控并添加实例'
+              : '暂无外部系统探测数据'
+          "
         >
-          <el-table-column prop="serviceName" label="外部系统" min-width="165" show-overflow-tooltip />
+          <el-table-column
+            prop="serviceName"
+            :label="module === 'middleware' ? '中间件实例' : '外部系统'"
+            min-width="165"
+            show-overflow-tooltip
+          />
+          <el-table-column
+            v-if="module === 'middleware'"
+            prop="middlewareType"
+            label="类型"
+            min-width="120"
+            show-overflow-tooltip
+          />
+          <el-table-column v-if="module === 'middleware'" label="探测方式" min-width="135">
+            <template slot-scope="scope">{{ probeModeLabel(scope.row.probeMode) }}</template>
+          </el-table-column>
           <el-table-column label="服务器与端口" min-width="155" show-overflow-tooltip>
-            <template slot-scope="scope">{{ scope.row.host || '-' }}:{{ scope.row.port || '-' }}</template>
+            <template slot-scope="scope"
+              >{{ scope.row.host || '-' }}:{{ scope.row.port || '-' }}</template
+            >
           </el-table-column>
           <el-table-column label="TCP 探测" width="105" align="center">
             <template slot-scope="scope">
@@ -270,7 +299,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="接口探测" width="105" align="center">
+          <el-table-column label="协议/接口" width="105" align="center">
             <template slot-scope="scope">
               <el-tag size="mini" :type="probeTagType(scope.row.interfaceStatus)">
                 {{ probeStatusLabel(scope.row.interfaceStatus) }}
@@ -280,88 +309,44 @@
           <el-table-column label="总体状态" width="110" align="center">
             <template slot-scope="scope">
               <el-tag size="mini" :type="probeTagType(scope.row.healthStatus)">
-                {{ probeStatusLabel(scope.row.healthStatus) }}
+                {{
+                  scope.row.probeMode === 'TCP' && scope.row.healthStatus === 'UP'
+                    ? '端口可达'
+                    : probeStatusLabel(scope.row.healthStatus)
+                }}
               </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="TCP 耗时" width="105" align="right">
-            <template slot-scope="scope">{{ formatResponseTime(scope.row.networkResponseTimeMs) }}</template>
+            <template slot-scope="scope">{{
+              formatResponseTime(scope.row.networkResponseTimeMs)
+            }}</template>
           </el-table-column>
-          <el-table-column label="接口耗时" width="105" align="right">
-            <template slot-scope="scope">{{ formatResponseTime(scope.row.responseTimeMs) }}</template>
+          <el-table-column label="协议耗时" width="105" align="right">
+            <template slot-scope="scope">{{
+              formatResponseTime(scope.row.responseTimeMs)
+            }}</template>
           </el-table-column>
           <el-table-column label="HTTP 状态" width="105" align="center">
             <template slot-scope="scope">{{ httpStatusLabel(scope.row.httpStatusCode) }}</template>
           </el-table-column>
-          <el-table-column prop="serviceUrl" label="接口地址" min-width="250" show-overflow-tooltip />
+          <el-table-column
+            prop="serviceUrl"
+            label="接口地址"
+            min-width="250"
+            show-overflow-tooltip
+          />
           <el-table-column prop="lastCheckTime" label="最后检查时间" min-width="165" />
-          <el-table-column prop="errorMessage" label="异常原因" min-width="220" show-overflow-tooltip />
+          <el-table-column
+            prop="errorMessage"
+            label="异常原因"
+            min-width="220"
+            show-overflow-tooltip
+          />
         </el-table>
       </template>
       <template v-else-if="module === 'highgo'">
-        <div class="metrics-grid compact">
-          <metric-card
-            label="连接数"
-            :value="highgo(client).connectionCount"
-            unit="个"
-            icon="el-icon-connection"
-          />
-          <metric-card
-            label="活跃连接"
-            :value="highgo(client).activeConnectionCount"
-            unit="个"
-            tone="green"
-            icon="el-icon-link"
-          />
-          <metric-card
-            label="连接负载"
-            :value="highgo(client).load"
-            unit="%"
-            :progress="highgo(client).load"
-            icon="el-icon-odometer"
-          />
-          <metric-card
-            label="登录失败"
-            :value="availableMetric(highgo(client).loginFailureCount)"
-            unit="次"
-            tone="red"
-            icon="el-icon-warning"
-          />
-          <metric-card
-            label="空闲连接"
-            :value="highgo(client).idleConnectionCount"
-            unit="个"
-            icon="el-icon-minus"
-          />
-          <metric-card
-            label="锁等待"
-            :value="highgo(client).waitingSessionCount"
-            unit="个"
-            tone="red"
-            icon="el-icon-warning"
-          />
-          <metric-card
-            label="长事务"
-            :value="highgo(client).longTransactionCount"
-            unit="个"
-            tone="yellow"
-            icon="el-icon-time"
-          />
-          <metric-card
-            :label="databaseSizeLabel(client)"
-            :value="availableMetric(highgo(client).databaseSizeMB)"
-            unit="MB"
-            icon="el-icon-coin"
-          />
-          <metric-card
-            label="缓存命中率"
-            :value="highgo(client).cacheHitRatio"
-            unit="%"
-            tone="green"
-            icon="el-icon-data-analysis"
-          />
-        </div>
-        <data-table :columns="highgoColumns" :rows="highgo(client).repeatedLargeTableQueries" />
+        <database-instance-panel :client="client" />
       </template>
     </div>
   </section>
@@ -370,6 +355,7 @@
 <script>
 import DataTable from '../components/DataTable.vue'
 import MetricCard from '../components/MetricCard.vue'
+import DatabaseInstancePanel from '../components/DatabaseInstancePanel.vue'
 import {
   acknowledgeAlert,
   getAlertHistory,
@@ -392,7 +378,7 @@ const ALERT_PAGE_SIZE = 10
 
 /** 展示端模块详情页，按路由模块展示节点实时数据。 */
 export default {
-  components: { DataTable, MetricCard },
+  components: { DataTable, MetricCard, DatabaseInstancePanel },
   props: { module: { type: String, default: 'system' } },
   data() {
     return {
@@ -414,15 +400,6 @@ export default {
         { key: 'environment', label: '环境' },
         { key: 'location', label: '位置' },
         { key: 'status', label: '状态', type: 'status' }
-      ],
-      highgoColumns: [
-        { key: 'databaseName', label: '数据库' },
-        { key: 'userName', label: '用户' },
-        { key: 'clientAddress', label: '客户端' },
-        { key: 'tableName', label: '表名' },
-        { key: 'tableSizeMB', label: '表大小（MB）' },
-        { key: 'query', label: 'SQL' },
-        { key: 'occurrences', label: '窗口内次数' }
       ]
     }
   },
@@ -579,10 +556,18 @@ export default {
       return Number(value || 0).toFixed(1)
     },
     formatResponseTime(value) {
-      return Number(value) < 0 ? '失败' : `${Number(value || 0)} ms`
+      return value === undefined || value === null || Number(value) < 0
+        ? '--'
+        : `${Number(value)} ms`
     },
     services(client) {
-      return client.microserviceMetrics || {}
+      return (
+        (this.module === 'middleware' ? client.middlewareMetrics : client.microserviceMetrics) || {}
+      )
+    },
+    probeModeLabel(mode) {
+      const labels = { HTTP: 'HTTP 健康接口', TCP: 'TCP 端口', REDIS: 'Redis PING' }
+      return labels[mode] || 'HTTP 健康接口'
     },
     unavailableServices(client) {
       const metrics = this.services(client)
@@ -592,25 +577,17 @@ export default {
       )
     },
     probeStatusLabel(status) {
-      const labels = { UP: '正常', DEGRADED: '部分异常', DOWN: '异常' }
+      const labels = { UP: '正常', DEGRADED: '部分异常', DOWN: '异常', SKIPPED: '未启用' }
       return labels[status] || '未知'
     },
     probeTagType(status) {
+      if (status === 'SKIPPED') return 'info'
       if (status === 'UP') return 'success'
       if (status === 'DEGRADED') return 'warning'
       return 'danger'
     },
     httpStatusLabel(statusCode) {
       return Number(statusCode) > 0 ? statusCode : '--'
-    },
-    highgo(client) {
-      return client.highgoMetrics || {}
-    },
-    availableMetric(value) {
-      return value === undefined || value === null || Number(value) < 0 ? '--' : value
-    },
-    databaseSizeLabel(client) {
-      return this.highgo(client).databaseName === '全部数据库' ? '实例总容量' : '数据库大小'
     },
     systemMetrics(client) {
       const metrics = client.systemMetrics || {}

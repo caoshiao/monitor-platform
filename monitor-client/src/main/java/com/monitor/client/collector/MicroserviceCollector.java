@@ -13,6 +13,7 @@ import javax.net.ssl.X509TrustManager;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -36,7 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
- * 外部系统双探针采集器，分别检测目标端口连通性和 HTTP 接口可用性。
+ * 外部系统与中间件探针采集器，支持 HTTP 双探针、TCP 连通性及 Redis 认证后 PING。
  *
  * <p>端口与接口均正常时总体状态为 {@code UP}，仅一项正常时为 {@code DEGRADED}，
  * 两项均异常时为 {@code DOWN}。多个外部系统通过受控线程池并行检测，避免单个超时阻塞整轮采集。</p>
@@ -59,6 +60,13 @@ public class MicroserviceCollector {
     private static final int READ_BUFFER_SIZE = 4096;
     private static final int HTTP_STATUS_MIN = 100;
     private static final int HTTP_STATUS_MAX = 599;
+    private static final String MODE_HTTP = "HTTP";
+    private static final String MODE_TCP = "TCP";
+    private static final String MODE_REDIS = "REDIS";
+    private static final String STATUS_SKIPPED = "SKIPPED";
+    private static final String REDIS_PONG = "+PONG";
+    private static final String REDIS_OK = "+OK";
+    private static final String RESP_LINE_END = "\r\n";
     private static final AtomicInteger THREAD_SEQUENCE = new AtomicInteger();
     private static volatile SSLSocketFactory trustAllFactory;
     private final Map<String, String> previousHealthStatuses = new ConcurrentHashMap<>();
@@ -71,8 +79,20 @@ public class MicroserviceCollector {
      * @return 外部系统探测汇总指标
      */
     public MicroserviceMetrics collect(String clientId, ClientConfig config) {
-        List<ClientConfig.ServiceEndpoint> endpoints = config.getMicroservices() == null
-                ? new ArrayList<>() : config.getMicroservices();
+        return collectEndpoints(clientId, config, config.getMicroservices());
+    }
+
+    /**
+     * 复用有界并发探针采集指定端点列表，供中间件和外部系统分别调用。
+     * @param clientId 客户端标识
+     * @param config 连接超时、并发及响应读取配置
+     * @param configuredEndpoints 本次采集的端点列表
+     * @return 本组端点的独立汇总指标
+     */
+    public MicroserviceMetrics collectEndpoints(String clientId, ClientConfig config,
+            List<ClientConfig.ServiceEndpoint> configuredEndpoints) {
+        List<ClientConfig.ServiceEndpoint> endpoints = configuredEndpoints == null
+                ? new ArrayList<>() : configuredEndpoints;
         log.debug("开始采集外部系统状态, clientId={}, systemCount={}", clientId, endpoints.size());
 
         ExecutorService executor = createExecutor(config.getMicroserviceProbeParallelism());
@@ -130,6 +150,10 @@ public class MicroserviceCollector {
         info.setServiceName(hasText(endpoint.getName()) ? endpoint.getName() : "未命名外部系统");
         info.setServiceUrl(endpoint.getHealthUrl());
         info.setLastCheckTime(LocalDateTime.now());
+        info.setMiddlewareType(endpoint.getMiddlewareType());
+        String probeMode = hasText(endpoint.getProbeMode())
+                ? endpoint.getProbeMode().trim().toUpperCase(Locale.ROOT) : MODE_HTTP;
+        info.setProbeMode(probeMode);
 
         ProbeTarget target = resolveTarget(endpoint);
         info.setHost(target.host);
@@ -137,7 +161,24 @@ public class MicroserviceCollector {
 
         ProbeResult networkResult = probeNetwork(target.host, target.port,
                 config.getMicroserviceConnectTimeoutMs());
-        ProbeResult interfaceResult = probeInterface(endpoint, config);
+        if (MODE_TCP.equals(probeMode)) {
+            // 端口探测不宣称业务协议正常，页面依据探测方式展示“端口可达”。
+            info.setNetworkStatus(networkResult.success ? STATUS_UP : STATUS_DOWN);
+            info.setNetworkResponseTimeMs(networkResult.durationMs);
+            info.setInterfaceStatus(STATUS_SKIPPED);
+            info.setResponseTimeMs(-1L);
+            info.setHealthStatus(networkResult.success ? STATUS_UP : STATUS_DOWN);
+            info.setErrorMessage(networkResult.errorMessage);
+            return info;
+        }
+        ProbeResult interfaceResult;
+        if (MODE_REDIS.equals(probeMode)) {
+            interfaceResult = probeRedis(target, endpoint, config);
+        } else if (MODE_HTTP.equals(probeMode)) {
+            interfaceResult = probeInterface(endpoint, config);
+        } else {
+            interfaceResult = ProbeResult.failed("不支持的探测方式: " + probeMode);
+        }
         info.setNetworkStatus(networkResult.success ? STATUS_UP : STATUS_DOWN);
         info.setInterfaceStatus(interfaceResult.success ? STATUS_UP : STATUS_DOWN);
         info.setNetworkResponseTimeMs(networkResult.durationMs);
@@ -148,11 +189,66 @@ public class MicroserviceCollector {
         return info;
     }
 
+    private ProbeResult probeRedis(ProbeTarget target, ClientConfig.ServiceEndpoint endpoint,
+            ClientConfig config) {
+        long startTime = System.currentTimeMillis();
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(target.host, target.port),
+                    positiveTimeout(config.getMicroserviceConnectTimeoutMs()));
+            socket.setSoTimeout(positiveTimeout(config.getMicroserviceReadTimeoutMs()));
+            if (hasText(endpoint.getPassword())) {
+                String[] authentication = hasText(endpoint.getUsername())
+                        ? new String[]{"AUTH", endpoint.getUsername(), endpoint.getPassword()}
+                        : new String[]{"AUTH", endpoint.getPassword()};
+                writeRedisCommand(socket.getOutputStream(), authentication);
+                if (!REDIS_OK.equals(readRedisReply(socket.getInputStream()))) {
+                    return ProbeResult.failed("Redis 认证失败，请检查客户端凭据配置");
+                }
+            }
+            writeRedisCommand(socket.getOutputStream(), "PING");
+            if (!REDIS_PONG.equals(readRedisReply(socket.getInputStream()))) {
+                return ProbeResult.failed("Redis 未返回 PONG，请检查认证权限或实例状态");
+            }
+            return ProbeResult.succeeded(System.currentTimeMillis() - startTime, -1);
+        } catch (IOException | RuntimeException exception) {
+            log.debug("Redis 协议探测失败, system={}", endpoint.getName(), exception);
+            return ProbeResult.failed(System.currentTimeMillis() - startTime, "Redis 连接或协议探测失败");
+        }
+    }
+
+    private void writeRedisCommand(OutputStream output, String... arguments) throws IOException {
+        output.write(("*" + arguments.length + RESP_LINE_END).getBytes(StandardCharsets.UTF_8));
+        for (String argument : arguments) {
+            byte[] bytes = argument.getBytes(StandardCharsets.UTF_8);
+            output.write(("$" + bytes.length + RESP_LINE_END).getBytes(StandardCharsets.UTF_8));
+            output.write(bytes);
+            output.write(RESP_LINE_END.getBytes(StandardCharsets.UTF_8));
+        }
+        output.flush();
+    }
+
+    private String readRedisReply(InputStream input) throws IOException {
+        ByteArrayOutputStream reply = new ByteArrayOutputStream();
+        while (reply.size() < READ_BUFFER_SIZE) {
+            int next = input.read();
+            if (next < 0) {
+                throw new IOException("Redis 响应未完整结束");
+            }
+            if (next == '\n') {
+                return reply.toString(StandardCharsets.UTF_8.name()).trim();
+            }
+            reply.write(next);
+        }
+        throw new IOException("Redis 单行响应超出读取上限");
+    }
+
     private MicroserviceMetrics.ServiceInfo buildUnexpectedFailure(
             ClientConfig.ServiceEndpoint endpoint, Throwable exception) {
         log.error("外部系统探测任务执行失败, system={}", endpoint.getName(), exception);
         MicroserviceMetrics.ServiceInfo info = new MicroserviceMetrics.ServiceInfo();
         info.setServiceName(hasText(endpoint.getName()) ? endpoint.getName() : "未命名外部系统");
+        info.setMiddlewareType(endpoint.getMiddlewareType());
+        info.setProbeMode(endpoint.getProbeMode());
         info.setServiceUrl(endpoint.getHealthUrl());
         info.setHost(endpoint.getHost());
         info.setPort(endpoint.getPort());
@@ -170,7 +266,9 @@ public class MicroserviceCollector {
     private void recordStatusChanges(String clientId,
                                      List<MicroserviceMetrics.ServiceInfo> services) {
         for (MicroserviceMetrics.ServiceInfo service : services) {
-            String statusKey = clientId + "\u0000" + service.getServiceName();
+            String statusKey = clientId + "\u0000" + service.getMiddlewareType()
+                    + "\u0000" + service.getServiceName() + "\u0000" + service.getHost()
+                    + "\u0000" + service.getPort();
             String previousStatus = previousHealthStatuses.put(statusKey, service.getHealthStatus());
             if (!Objects.equals(previousStatus, service.getHealthStatus())) {
                 log.info("外部系统状态变化, clientId={}, system={}, previous={}, current={}, tcp={}, interface={}",

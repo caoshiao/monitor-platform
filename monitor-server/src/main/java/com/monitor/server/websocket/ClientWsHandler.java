@@ -70,6 +70,12 @@ public class ClientWsHandler extends TextWebSocketHandler {
             sessionClientMap.put(session.getId(), clientId);
 
             switch (msg.getType()) {
+                case "MIDDLEWARE":
+                    if (msg.getMiddlewareMetrics() != null) {
+                        metricsService.updateMiddlewareMetrics(clientId, msg.getMiddlewareMetrics());
+                        metricsService.markOnline(clientId);
+                    }
+                    break;
                 case "SYSTEM":
                     if (msg.getSystemMetrics() != null) {
                         metricsService.updateSystemMetrics(clientId, msg.getSystemMetrics());

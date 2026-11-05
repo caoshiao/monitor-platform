@@ -108,6 +108,9 @@ public class ServerMessage {
         /** 该客户端最新的微服务指标快照 */
         private MicroserviceMetrics microserviceMetrics;
 
+        /** 该客户端最新的中间件可用性指标，独立于外部系统统计。 */
+        private MicroserviceMetrics middlewareMetrics;
+
         private HighgoMetrics highgoMetrics;
     }
 

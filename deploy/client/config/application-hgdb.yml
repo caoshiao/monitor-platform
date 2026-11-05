@@ -1,0 +1,29 @@
+# 瀚高数据库安全版示例。采集器复用 PostgreSQL 协议兼容实现，驱动和 JDBC 前缀由配置决定。
+monitor:
+  client:
+    database:
+      enabled: true
+      type: hgdb
+      collector: postgresql
+      display-name: 瀚高数据库
+      url-prefix: "jdbc:highgo:"
+      driver-class: com.highgo.jdbc.Driver
+      url: jdbc:highgo://127.0.0.1:5866/kcc_main
+      username: szh
+      password: 请填写监控账号密码
+      collect-interval-ms: 5000
+      connect-timeout-seconds: 5
+      query-timeout-seconds: 10
+      long-transaction-seconds: 300
+      client-backend-only: false
+      excluded-databases:
+        - highgo
+      server-log-directory: /var/log/highgo
+      server-log-pattern: "*.csv"
+      log-max-read-bytes-per-cycle: 1048576
+      log-max-record-bytes: 1048576
+      collector-state-path: /opt/monitor-platform/data/hgdb-collector.state
+      login-failure-window-hours: 24
+      large-table-size-mb: 50
+      large-query-max-rows: 100
+      large-query-window-minutes: 60

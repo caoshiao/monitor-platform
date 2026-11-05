@@ -1,0 +1,33 @@
+# PostgreSQL 12 及以上版本示例；database.type 用于产品标识，collector 用于选择采集器。
+# 填写真实地址和密码，客户端必须能够读取数据库服务器的 CSV 日志目录。
+monitor:
+  client:
+    database:
+      enabled: true
+      type: postgres
+      collector: postgresql
+      display-name: PostgreSQL
+      url-prefix: "jdbc:postgresql:"
+      driver-class: org.postgresql.Driver
+      client-backend-only: true
+      # 仅在 PostgreSQL 已启用 CSV 日志、且客户端能访问目录时设为 true。
+      query-log-enabled: false
+      url: jdbc:postgresql://127.0.0.1:5432/postgres
+      username: monitor_user
+      password: 请填写监控账号密码
+      collect-interval-ms: 5000
+      connect-timeout-seconds: 5
+      query-timeout-seconds: 10
+      long-transaction-seconds: 300
+      # 默认汇总所有可连接的非模板库；按实际需要排除库。
+      excluded-databases: []
+      server-log-directory: /var/log/postgresql
+      server-log-pattern: "*.csv"
+      # 大文件按持久化偏移增量读取，每轮最多 1 MiB，不会整文件载入内存。
+      log-max-read-bytes-per-cycle: 1048576
+      log-max-record-bytes: 1048576
+      collector-state-path: /opt/monitor-platform/data/postgresql-collector.state
+      login-failure-window-hours: 24
+      large-table-size-mb: 50
+      large-query-max-rows: 100
+      large-query-window-minutes: 60

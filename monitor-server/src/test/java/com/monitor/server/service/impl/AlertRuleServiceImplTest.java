@@ -30,7 +30,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** 瀚高数据库告警文案格式测试。 */
+/** 数据库事件文案、系统指标告警及确认状态转换测试。 */
 class AlertRuleServiceImplTest {
 
     private static final int MAX_ALERT_MESSAGE_LENGTH = 500;
@@ -61,6 +61,15 @@ class AlertRuleServiceImplTest {
 
         assertEquals(MAX_ALERT_MESSAGE_LENGTH, message.length());
         assertTrue(message.contains("...，时间：2026-10-09 15:41:06"));
+    }
+
+    @Test
+    void shouldLabelPostgresqlQueryWithoutHighgoProductName() {
+        String message = AlertRuleServiceImpl.formatLargeTableQueryMessage(
+                createQuery("select * from szh_file;"), "PostgreSQL 数据库");
+        assertTrue(message.startsWith("检测到PostgreSQL 数据库全表查询："));
+        assertFalse(message.contains("瀚高"));
+        assertTrue(message.contains("账号=szh"));
     }
 
     @Test

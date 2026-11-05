@@ -3,7 +3,7 @@ package com.monitor.client.scheduler;
 import com.monitor.client.collector.DockerCollector;
 import com.monitor.client.collector.MicroserviceCollector;
 import com.monitor.client.collector.SystemCollector;
-import com.monitor.client.collector.HighgoCollector;
+import com.monitor.client.collector.DatabaseCollector;
 import com.monitor.client.config.ClientConfig;
 import com.monitor.client.websocket.ClientWebSocketHandler;
 import com.monitor.common.model.ClientMessage;
@@ -20,9 +20,10 @@ import org.springframework.stereotype.Component;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.List;
 
 /**
- * 采集调度器 —— 客户端的核心控制器，在应用就绪后建立 WebSocket 连接并周期性调度三类采集器。
+ * 采集调度器 —— 应用就绪后建立 WebSocket 连接，周期调度系统、容器、服务及数据库采集。
  * <p>
  * 初始化流程（{@link ApplicationReadyEvent} 回调）：
  * <ol>
@@ -34,6 +35,7 @@ import java.net.UnknownHostException;
  *   <li>系统指标 —— 每 5 秒</li>
  *   <li>Docker 指标 —— 每 15 秒</li>
  *   <li>微服务指标 —— 每 10 秒</li>
+ *   <li>PostgreSQL 或瀚高实例指标及日志事件 —— 按数据库配置周期采集</li>
  * </ul>
  * 每次采集前校验功能开关及 WebSocket 连接状态，避免无效调用。
  * </p>
@@ -60,13 +62,39 @@ public class CollectScheduler {
     /** 微服务健康检测采集器（HTTP GET） */
     private final MicroserviceCollector microserviceCollector;
 
-    private final HighgoCollector highgoCollector;
+    /** 已注册数据库采集器，由数据库配置的 collector 字段选择。 */
+    private final List<DatabaseCollector> databaseCollectors;
 
     /** WebSocket 客户端，用于向服务端发送消息 */
     private final ClientWebSocketHandler wsHandler;
 
     /** 最终确定的客户端唯一标识（由 initClientId 设置） */
     private String clientId;
+
+    /** 中间件消息类型，与外部系统指标分别上报。 */
+    private static final String MIDDLEWARE_MESSAGE_TYPE = "MIDDLEWARE";
+
+    /**
+     * 周期采集中间件指标并通过 WebSocket 上报，开关和端点由配置文件管理。
+     */
+    @Scheduled(fixedDelayString = "#{@clientConfig.middlewareCollectIntervalMs}")
+    public void collectMiddlewareMetrics() {
+        if (!config.isMiddlewareEnabled() || !wsHandler.isConnected()) {
+            return;
+        }
+        try {
+            MicroserviceMetrics metrics = microserviceCollector.collectEndpoints(
+                    clientId, config, config.getMiddlewares());
+            ClientMessage message = new ClientMessage();
+            message.setType(MIDDLEWARE_MESSAGE_TYPE);
+            message.setClientId(clientId);
+            message.setMiddlewareMetrics(metrics);
+            wsHandler.sendMessage(message);
+            log.debug("中间件指标上报完成, clientId={}, total={}", clientId, metrics.getTotalServices());
+        } catch (RuntimeException exception) {
+            log.error("中间件指标采集上报失败, clientId={}", clientId, exception);
+        }
+    }
 
     /**
      * Spring 容器就绪后回调：初始化 clientId 并连接服务端。
@@ -149,18 +177,33 @@ public class CollectScheduler {
         }
     }
 
-    @Scheduled(fixedDelayString = "#{@clientConfig.highgoCollectIntervalMs}")
+    /** 周期采集已启用的数据库实例，通过既有消息协议推送指标。 */
+    @Scheduled(fixedDelayString = "#{@clientConfig.resolveDatabaseConfig().collectIntervalMs}")
     public void collectHighgoMetrics() {
-        if (!config.isHighgoEnabled() || !wsHandler.isConnected()) return;
+        if (!config.resolveDatabaseConfig().isEnabled() || !wsHandler.isConnected()) return;
         try {
-            HighgoMetrics metrics = highgoCollector.collect(clientId, config);
+            DatabaseCollector collector = resolveDatabaseCollector();
+            HighgoMetrics metrics = collector.collect(clientId, config);
             ClientMessage message = new ClientMessage();
             message.setType("HIGHGO");
             message.setClientId(clientId);
             message.setHighgoMetrics(metrics);
             wsHandler.sendMessage(message);
         } catch (RuntimeException e) {
-            log.error("采集瀚高数据库指标失败, clientId={}", clientId, e);
+            log.error("采集数据库指标失败, clientId={}", clientId, e);
         }
+    }
+
+    /**
+     * 根据配置选择数据库采集器，未知类型直接记录错误，避免按错误方言采集。
+     *
+     * @return 已注册的数据库采集器
+     */
+    private DatabaseCollector resolveDatabaseCollector() {
+        String collectorType = config.resolveDatabaseConfig().getCollector();
+        return databaseCollectors.stream()
+                .filter(collector -> collector.getCollectorType().equalsIgnoreCase(collectorType))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("未注册数据库采集器: " + collectorType));
     }
 }

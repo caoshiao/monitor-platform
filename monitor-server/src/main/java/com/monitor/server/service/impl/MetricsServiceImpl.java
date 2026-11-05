@@ -45,6 +45,20 @@ public class MetricsServiceImpl implements MetricsService {
     /** clientId → 最新微服务指标 */
     private final Map<String, MicroserviceMetrics> microserviceMap = new ConcurrentHashMap<>();
 
+    /** 客户端最新中间件指标缓存。 */
+    private final Map<String, MicroserviceMetrics> middlewareMap = new ConcurrentHashMap<>();
+
+    /**
+     * 更新中间件指标缓存。
+     * @param clientId 客户端标识
+     * @param metrics 中间件指标
+     */
+    @Override
+    public void updateMiddlewareMetrics(String clientId, MicroserviceMetrics metrics) {
+        middlewareMap.put(clientId, metrics);
+        log.debug("中间件指标缓存已更新, clientId={}, total={}", clientId, metrics.getTotalServices());
+    }
+
     private final Map<String, HighgoMetrics> highgoMap = new ConcurrentHashMap<>();
 
     /** clientId → 主机名 */
@@ -153,6 +167,7 @@ public class MetricsServiceImpl implements MetricsService {
             snap.setSystemMetrics(systemMap.get(clientId));
             snap.setDockerMetrics(dockerMap.get(clientId));
             snap.setMicroserviceMetrics(microserviceMap.get(clientId));
+            snap.setMiddlewareMetrics(middlewareMap.get(clientId));
             snap.setHighgoMetrics(highgoMap.get(clientId));
             SystemMetrics systemMetrics = systemMap.get(clientId);
             if (systemMetrics != null) {

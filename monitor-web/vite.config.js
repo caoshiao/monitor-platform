@@ -1,16 +1,18 @@
 import { defineConfig } from 'vite'
 import vue2 from '@vitejs/plugin-vue2'
 import { resolve } from 'node:path'
+import deployment from './deployment.config.js'
 
 export default defineConfig(({ mode }) => ({
+  base: mode === 'production' ? './' : '/',
   plugins: [vue2()],
   server: {
-    port: 3000,
-    host: '0.0.0.0',
+    port: deployment.development.port,
+    host: deployment.development.host,
     proxy: {
-      '/api': { target: 'http://localhost:8080', changeOrigin: true },
+      '/api': { target: deployment.development.backendUrl, changeOrigin: true },
       '/ws': {
-        target: 'ws://localhost:8080',
+        target: deployment.development.backendUrl,
         ws: true,
         changeOrigin: true,
         configure(proxy) {
@@ -20,9 +22,6 @@ export default defineConfig(({ mode }) => ({
         }
       }
     }
-  },
-  define: {
-    __API_BASE__: JSON.stringify(mode === 'production' ? (process.env.VITE_API_BASE || '') : '')
   },
   build: {
     outDir: 'dist',

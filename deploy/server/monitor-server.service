@@ -27,7 +27,7 @@ User=root
 Group=root
 
 # 工作目录
-WorkingDirectory=/usr/local/monitor-platform/monitor-server
+WorkingDirectory=/usr/local/szh/monitor-platform/server
 
 # 启动命令（配置文件外挂到 ./config/）
 ExecStart=/usr/bin/java \
@@ -36,7 +36,7 @@ ExecStart=/usr/bin/java \
     -Dfile.encoding=UTF-8 \
     -XX:+UseG1GC \
     -XX:MaxRAMPercentage=75.0 \
-    -jar /usr/local/monitor-platform/monitor-server/monitor-server-1.0.0-SNAPSHOT.jar \
+    -jar /usr/local/szh/monitor-platform/server/monitor-server-1.0.0-SNAPSHOT.jar \
     --spring.config.location=./config/
 
 # 优雅停止

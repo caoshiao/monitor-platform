@@ -7,9 +7,15 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 瀚高数据库安全版 V4.5 实时运行与审计指标模型。 */
+/** PostgreSQL 与瀚高数据库实时指标；保留旧模型名称兼容既有消息协议。 */
 @Data
 public class HighgoMetrics {
+
+    /** 数据库产品标识，旧客户端默认视为瀚高。 */
+    private String databaseType = "HIGHGO";
+
+    /** 数据库产品展示名称，不包含任何账号或连接凭据。 */
+    private String databaseProduct = "瀚高数据库";
 
     private String clientId;
 

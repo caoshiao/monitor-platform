@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 外部系统指标数据模型 —— 封装一轮 TCP 与接口双探针检查结果。
+ * 服务可用性指标数据模型，封装外部系统及中间件的一轮探针检查结果。
  * <p>
  * 客户端分别检测目标主机端口连通性和 HTTP 接口可用性，再计算外部系统总体状态。
  * </p>
@@ -42,7 +42,7 @@ public class MicroserviceMetrics {
     /** 被监控的外部系统总数。 */
     private int totalServices = 0;
 
-    /** 两项探针均正常的系统数量。 */
+    /** 所配置探针正常的实例数量，TCP 模式仅代表端口可达。 */
     private int healthyServices = 0;
 
     /** 至少一项探针异常的系统数量。 */
@@ -63,6 +63,12 @@ public class MicroserviceMetrics {
      */
     @Data
     public static class ServiceInfo {
+
+        /** 中间件类型，外部系统端点可留空。 */
+        private String middlewareType;
+
+        /** 实际执行的探测方式：HTTP、TCP 或 REDIS。 */
+        private String probeMode;
 
         /** 外部系统名称（自定义标识，如“统一身份认证系统”）。 */
         private String serviceName;
