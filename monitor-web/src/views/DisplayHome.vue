@@ -12,7 +12,7 @@
         <el-card
           class="home-summary-card"
           :class="{ 'is-clickable': item.route }"
-          shadow="hover"
+          shadow="never"
           @click.native="item.route && goToModule(item.route)"
         >
           <span class="home-summary-card__label">{{ item.label }}</span>
@@ -27,31 +27,49 @@
       <el-col :span="8">
         <el-card
           class="module-card module-card--link"
-          shadow="hover"
+          shadow="never"
           @click.native="goToModule('external-api')"
         >
           <div slot="header" class="module-card__header">
-            <span><i class="el-icon-link" /> 外部接口状态</span><i class="el-icon-arrow-right" />
+            <span><i class="el-icon-link" /> 接口状态</span><i class="el-icon-arrow-right" />
           </div>
-          <div v-if="totalServices" class="external-status-summary">
-            <div>
-              <span>系统总数</span><strong>{{ totalServices }}</strong>
+          <div v-if="totalServices" class="external-status-content">
+            <div class="external-status-summary">
+              <div>
+                <span>接口总数</span><strong>{{ totalServices }}</strong>
+              </div>
+              <div>
+                <span>正常接口</span><strong class="is-success">{{ healthyServices }}</strong>
+              </div>
+              <div>
+                <span>异常接口</span><strong class="is-danger">{{ unhealthyServices }}</strong>
+              </div>
+              <div>
+                <span>接口可用率</span><strong>{{ interfaceAvailability }}</strong>
+              </div>
             </div>
-            <div>
-              <span>可用</span><strong class="is-success">{{ healthyServices }}</strong>
-            </div>
-            <div>
-              <span>异常</span><strong class="is-danger">{{ unhealthyServices }}</strong>
+            <div class="interface-preview">
+              <div class="interface-preview__head">
+                <span>接口名称</span><span>地址</span><span>状态</span><span>耗时</span>
+              </div>
+              <div v-for="item in interfacePreviewRows" :key="item.key" class="interface-preview__row">
+                <strong :title="item.serviceName">{{ item.serviceName }}</strong>
+                <span :title="item.address">{{ item.address }}</span>
+                <el-tag size="mini" :type="serviceStatusType(item.healthStatus)">{{
+                  serviceStatusLabel(item.healthStatus)
+                }}</el-tag>
+                <time>{{ formatProbeTime(item) }}</time>
+              </div>
             </div>
           </div>
-          <div v-else class="module-card__empty">暂无外部系统探测数据</div>
+          <div v-else class="module-card__empty">暂无接口探测数据</div>
         </el-card>
       </el-col>
 
       <el-col :span="8">
         <el-card
           class="module-card module-card--alerts"
-          shadow="hover"
+          shadow="never"
           @click.native="goToModule('alerts')"
         >
           <div slot="header" class="module-card__header">
@@ -60,18 +78,26 @@
               {{ activeAlerts.length ? `${activeAlerts.length} 条` : '运行正常' }}
             </el-tag>
           </div>
-          <div v-if="activeAlerts.length" class="latest-alert-list">
-            <div
-              v-for="event in activeAlerts.slice(0, alertLimit)"
-              :key="alertKey(event)"
-              class="latest-alert-item"
-              :class="{ 'is-critical': event.level === 'CRITICAL' }"
-            >
-              <span>{{ event.nodeName || event.clientId }}</span>
-              <em>{{ alertType(event.metric) }}</em>
-              <time>{{ formatAlertTime(event.startedAt) }}</time>
+          <template v-if="activeAlerts.length">
+            <div class="latest-alert-summary">
+              <strong>{{ activeAlerts.length }}</strong>
+              <span>当前待处理告警</span>
+              <small>实时更新</small>
             </div>
-          </div>
+            <div class="latest-alert-list">
+              <div
+                v-for="event in activeAlerts.slice(0, alertLimit)"
+                :key="alertKey(event)"
+                class="latest-alert-item"
+                :class="{ 'is-critical': event.level === 'CRITICAL' }"
+              >
+                <span>{{ event.nodeName || event.clientId }}</span>
+                <em>{{ alertType(event.metric) }}</em>
+                <time>{{ formatAlertTime(event.startedAt) }}</time>
+              </div>
+            </div>
+            <div class="latest-alert-footer">查看全部告警 <i class="el-icon-arrow-right" /></div>
+          </template>
           <div v-else class="module-card__empty module-card__empty--success">
             <i class="el-icon-success" /> 当前没有活动告警
           </div>
@@ -81,7 +107,7 @@
       <el-col :span="8">
         <el-card
           class="module-card module-card--database"
-          shadow="hover"
+          shadow="never"
           @click.native="goToModule('highgo')"
         >
           <div slot="header" class="module-card__header">
@@ -150,6 +176,7 @@ import { alertTypeLabel } from '../constants/alertTypes'
 import { formatServerTime } from '../utils/dateTime'
 
 const ALERT_LIMIT = 4
+const INTERFACE_PREVIEW_LIMIT = 4
 const STATIC_REFRESH_INTERVAL = 30000
 const RECONNECT_INTERVAL = 3000
 
@@ -203,6 +230,30 @@ export default {
           total + Number((client.microserviceMetrics || {}).unhealthyServices || 0),
         0
       )
+    },
+    interfaceAvailability() {
+      if (!this.totalServices) return '--'
+      return `${((this.healthyServices / this.totalServices) * 100).toFixed(1)}%`
+    },
+    interfacePreviewRows() {
+      const rows = this.clients.reduce((result, client) => {
+        const services = (client.microserviceMetrics || {}).services || []
+        services.forEach((service, index) => {
+          result.push({
+            key: `${client.clientId}-${service.serviceName}-${index}`,
+            serviceName: service.serviceName || '未命名接口',
+            address: this.serviceAddress(service),
+            healthStatus: service.healthStatus,
+            probeMode: service.probeMode,
+            responseTimeMs: service.responseTimeMs,
+            networkResponseTimeMs: service.networkResponseTimeMs
+          })
+        })
+        return result
+      }, [])
+      return rows
+        .sort((left, right) => this.serviceStatusRank(left.healthStatus) - this.serviceStatusRank(right.healthStatus))
+        .slice(0, INTERFACE_PREVIEW_LIMIT)
     },
     middlewareSummary() {
       return this.clients.reduce(
@@ -289,7 +340,7 @@ export default {
         {
           label: '运行容器',
           value: this.totalRunning,
-          note: 'RUNNING CONTAINERS，点击查看详情',
+          note: '运行中的容器，点击查看详情',
           tone: 'green',
           route: 'docker'
         },
@@ -384,6 +435,30 @@ export default {
       return value === null || value === undefined || Number(value) < 0
         ? '--'
         : `${Number(value).toFixed(precision)}${unit}`
+    },
+    serviceAddress(service) {
+      if (!service) return '--'
+      const host = service.host || '--'
+      return service.port > 0 ? `${host}:${service.port}` : host
+    },
+    serviceStatusRank(status) {
+      const ranks = { DOWN: 0, DEGRADED: 1, UP: 2 }
+      return ranks[status] === undefined ? 3 : ranks[status]
+    },
+    serviceStatusLabel(status) {
+      const labels = { UP: '正常', DEGRADED: '告警', DOWN: '异常' }
+      return labels[status] || '未知'
+    },
+    serviceStatusType(status) {
+      const types = { UP: 'success', DEGRADED: 'warning', DOWN: 'danger' }
+      return types[status] || 'info'
+    },
+    formatResponseTime(value) {
+      return Number(value) >= 0 ? `${Number(value)} ms` : '--'
+    },
+    formatProbeTime(item) {
+      const value = item.probeMode === 'TCP' ? item.networkResponseTimeMs : item.responseTimeMs
+      return this.formatResponseTime(value)
     },
     alertKey(event) {
       return event.id || `${event.ruleId}-${event.clientId}`

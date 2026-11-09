@@ -2,8 +2,8 @@
 export const DISPLAY_MODULES = Object.freeze([
   {
     key: 'external-api',
-    label: '外部接口状态',
-    description: '外部接口健康检查与响应耗时',
+    label: '接口状态',
+    description: '接口健康检查与响应耗时',
     icon: 'el-icon-link',
     value: 'EXTERNAL API STATUS'
   },
@@ -30,7 +30,7 @@ export const DISPLAY_MODULE_META = Object.freeze({
   },
   docker: { title: 'Docker 容器', description: '容器运行状态与资源使用情况' },
   services: { title: '微服务', description: '微服务健康检查结果' },
-  'external-api': { title: '外部接口状态', description: '外部接口健康检查结果' },
+  'external-api': { title: '接口状态', description: '接口健康检查结果' },
   highgo: { title: '数据库监控', description: 'PostgreSQL / 瀚高实例运行指标与日志事件' },
   alerts: { title: '告警中心', description: '查看全部告警记录并确认待处理事件' },
   nodes: { title: '在线节点', description: '查看节点总数及在线状态' }
